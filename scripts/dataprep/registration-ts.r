@@ -1,0 +1,221 @@
+# Packages
+library(arrow)
+library(dbplyr)
+library(dplyr)
+library(glue)
+library(lubridate)
+
+# Modules
+box::use(
+  R / connect[open_parquet],
+  R /
+    database[
+      last_logged_action,
+      reg_badge_status,
+      reg_recipe_status_typed,
+      reg_recipe_status_summed
+    ],
+  R / helpers[tidyup],
+  R / parameters[DATES],
+  R / criteria[CRITERIA_OSR]
+)
+
+# Local parameters
+PQROOT <- "data/registration"
+PQSUFFIX <- "tsmonthly.parquet"
+PATH_ALL <- glue("{PQROOT}_{PQSUFFIX}")
+PATH_REG <- glue("{PQROOT}_registries_{PQSUFFIX}")
+PATH_TMP <- glue("{PQROOT}_templates_{PQSUFFIX}")
+
+FACETS <- c("registry", "template")
+
+# DATA PREP --------------------------------------------------------------------
+# Status datasets
+reg_main <- open_parquet("data", "registration")
+reg_visibility <- open_parquet("data", "registration_visibility")
+reg_embargo <- open_parquet("data", "registration_embargo")
+reg_retracted <- open_parquet("data", "registration_retraction")
+reg_spam <- open_parquet("data", "registration_spam")
+
+# Combine statuses
+regtime_tbl <- reg_main |>
+  select("node_id", "created", "registered_date", "deleted", FACETS) |>
+  left_join(reg_visibility, by = "node_id", relationship = "many-to-many") |>
+  left_join(reg_embargo, by = "node_id", relationship = "many-to-many") |>
+  left_join(reg_retracted, by = "node_id", relationship = "many-to-many") |>
+  left_join(reg_spam, by = "node_id", relationship = "many-to-many")
+
+# Badge data
+reg_badges <- open_parquet("data", "registration_badges")
+
+
+# FUNCTIONS --------------------------------------------------------------------
+# Generate the status of each registration along criteria of interest at a given date
+create_status_table <- function(date) {
+  # Prep data sources
+  snapshot <- regtime_tbl |>
+    filter(created <= date)
+  status_main <- snapshot |>
+    select("node_id", "created", "registered_date", "deleted", FACETS) |>
+    distinct(node_id, .keep_all = TRUE)
+  status_vis <- snapshot |>
+    last_logged_action(
+      visibility_status_date,
+      visibility_status,
+      date,
+      node_id
+    ) |>
+    rename(visibility = status)
+  status_embargo <- snapshot |>
+    last_logged_action(embargo_status_date, embargo_status, date, node_id) |>
+    rename(embargo = status)
+  status_retracted <- snapshot |>
+    last_logged_action(
+      retraction_status_date,
+      retraction_status,
+      date,
+      node_id
+    ) |>
+    rename(retraction = status)
+  status_spam <- snapshot |>
+    last_logged_action(spam_status_date, spam_status, date, node_id) |>
+    rename(spam = status)
+
+  # Compute status
+  status_at_date <- status_main |>
+    left_join(status_vis, by = "node_id") |>
+    left_join(status_embargo, by = "node_id") |>
+    left_join(status_retracted, by = "node_id") |>
+    left_join(status_spam, by = "node_id") |>
+    mutate(
+      is_open = ifelse(!!CRITERIA_OSR$open, 1, 0),
+      is_nondeprecated = ifelse(!!CRITERIA_OSR$nondeprecated, 1, 0),
+      is_authentic = ifelse(!!CRITERIA_OSR$authentic, 1, 0)
+    )
+  return(status_at_date)
+}
+
+#' Compute the lifecycle open status of each registration at a given date
+compute_los_status <- function(date, method = c("typed", "summed")) {
+  # Get statuses
+  status_at_date <- create_status_table(date)
+
+  # Get badges
+  badges_at_date <- reg_badge_status(
+    reg_badges,
+    date,
+    node_id,
+    artifact_type
+  )
+  # Apply lifecycle open science recipe to get badges
+  if (method[1] == "typed") {
+    recipe_at_date <- badges_at_date |>
+      reg_recipe_status_typed()
+  }
+  if (method[1] == "summed") {
+    recipe_at_date <- badges_at_date |>
+      reg_recipe_status_summed()
+  }
+
+  # Join
+  status_at_date |>
+    left_join(recipe_at_date, by = "node_id") |>
+    mutate(
+      n_outputs = ifelse(is.na(n_outputs), 0, n_outputs),
+      n_outcomes = ifelse(is.na(n_outcomes), 0, n_outcomes)
+    )
+}
+
+#' Summarize the lifecycle open status all registration at a given date
+los_summary <- function(status_tbl, ...) {
+  status_tbl |>
+    summarise(
+      .by = c(...),
+      n_total = n(),
+      # Openness components
+      n_public = sum(visibility == "public"),
+      n_not_embargoed = sum(embargo == "unembargoed"),
+      # Non-deprecated components
+      n_registered = sum(!is.na(registered_date)),
+      n_not_deleted = sum(!is.na(deleted)),
+      n_not_retracted = sum(retraction == "non-retracted"),
+      # LOS Plan Components (i.e., open, non-deprecated, and authentic)
+      n_open = sum(is_open == 1),
+      n_not_deprecated = sum(is_nondeprecated == 1),
+      n_authentic = sum(is_authentic == 1),
+      n_open_notdep = sum(is_open == 1 & is_nondeprecated == 1),
+      n_open_auth = sum(is_open == 1 & is_authentic == 1),
+      n_notdep_auth = sum(is_authentic == 1 & is_nondeprecated == 1),
+      # LOS Plan
+      n_los_plan = sum(
+        is_open == 1 & is_nondeprecated == 1 & is_authentic == 1,
+        na.rm = TRUE
+      ),
+      # LOS Relationships
+      n_los_outcomes = sum(n_outcomes > 0, na.rm = TRUE),
+      n_los_outputs = sum(n_outputs > 0, na.rm = TRUE),
+      # Full LOS
+      n_los_complete = sum(
+        is_open == 1 &
+          is_nondeprecated == 1 &
+          is_authentic == 1 &
+          n_outcomes > 0 &
+          n_outputs > 0,
+        na.rm = TRUE
+      )
+    )
+}
+
+# Wrapper to compute summaries for all dates
+compute_all_summaries <- function(
+  dates,
+  grp = NULL,
+  method = c("typed", "summed")
+) {
+  purrr::map(
+    dates,
+    ~ compute_los_status(.x, method) |>
+      los_summary({{ grp }}) |>
+      collect(),
+    .progress = TRUE
+  ) |>
+    tidyup(dates, "date")
+}
+
+
+# COMPUTE ----------------------------------------------------------------------
+# Aggregate summaries
+s <- Sys.time()
+all_summaries <- compute_all_summaries(DATES)
+write_parquet(all_summaries, PATH_ALL)
+elapsed <- Sys.time() - s
+print(elapsed)
+
+# Summaries by registry
+s <- Sys.time()
+registry_summaries <- compute_all_summaries(DATES, registry)
+write_parquet(registry_summaries, PATH_REG)
+elapsed <- Sys.time() - s
+print(elapsed)
+
+# Summaries by template
+s <- Sys.time()
+template_summaries <- compute_all_summaries(DATES, template)
+write_parquet(template_summaries, PATH_TMP)
+elapsed <- Sys.time() - s
+print(elapsed)
+
+# Summaries by registry-template
+s <- Sys.time()
+regtemplate_summaries <- compute_all_summaries(DATES, registry, template)
+write_parquet(registry_template_summaries, PATH_REGTMP)
+elapsed <- Sys.time() - s
+print(elapsed)
+
+# DIAGNOSTICS ------------------------------------------------------------------
+# Check alternative method
+# s <- Sys.time()
+# all_summaries2 <- compute_all_summaries(DATES, method = "summed")
+# # write_parquet(all_summaries2, PATH_ALL2)
+# elapsed <- Sys.time() - s
+# print(elapsed)

@@ -1,0 +1,106 @@
+---
+title: "Lifecycle Open Science: OSF Preprint Assertions"
+date: "2025-08-12"
+output: html_document
+---
+
+# Overview
+
+> **This method measures lifecycle open science on OSF by looking at preprint assertions.**
+
+## Definitions
+
+> Open Science Preprint (OSP): An OSF Preprint that is jointly *open*, *non-deprecated*, and *authentic*
+
+- Openness Criteria:
+    1. Public (open-1)
+
+- Non-Deprecation Criteria:
+    1. Published (nondeprecated-1)
+    2. Not Deleted (nondeprecated-2)
+    3. Not Withdrawn (nondeprecated-3)
+
+- Authenticity Criteria:
+    1. Not Spam (authentic-1)
+
+> Lifecycle Open Science Preprint (LOS-Preprint): An OSP that represents a lifecycle open science research project.
+
+- Lifecycle Open Criteria:
+
+    1. The OSP has at least 1 linked dataset
+    2. The OSP has at least 1 linked preregistration
+
+# Results
+
+# Today
+
+Here is the current state of LOS research projects on the OSF as of `r max(all_ts$date)`:
+
+
+First, in aggregate:
+
+```{r}
+today_all <- all_ts |>
+    filter(date == max(date)) |>
+    tidy_table()
+
+today_all
+```
+
+And also by provider:
+
+```{r}
+today_provider <- provider_ts |>
+    filter(date == max(date)) |>
+    tidy_table(provider) |>
+    filter(Status %in% c("LOS-Preprint", "Open Sci. Preprints (OSP)")) |>
+    pivot_wider(id_cols = registry, names_from = Status, values_from = N)  |>
+    mutate(`LOS-Preprint %` = `LOS-Preprint` / `Open Sci. Preprints (OSP)` * 100) |>
+    arrange(desc(`LOS-Preprints %`))
+
+today_registry
+```
+
+
+```{r}
+los_summary_long <- los_summary |>
+    pivot_longer(
+        cols = starts_with("n_"),
+        names_to = "state",
+        names_prefix = "n_",
+        values_to = "n"
+    )
+    
+los_summary_long |>
+    filter(state %in% c("total", "valid", "los", "los_valid")) |>
+    mutate(state = factor(state, levels = c("total", "valid", "los", "los_valid"))) |>
+    ggplot(aes(x = as.Date(date), y = n, group = state, color = state)) + 
+    geom_line() +
+    theme_minimal() +
+    scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+    scale_y_continuous(labels = scales::comma) +
+    labs(y = "Number of projects", x = "Date") +
+    theme(legend.position = "bottom")
+```
+
+Note, these efficiencies are under-estimates, since we do not exclude preprints coming from provdiders that do not enable author assertions.
+
+```{r}
+los_summary |>
+    pivot_longer(
+        cols = starts_with("los_"),
+        names_to = "state",
+        names_prefix = "los_",
+        values_to = "p"
+    ) |>
+    filter(grepl("efficiency", state)) |>
+    mutate(state = factor(state, levels = c("efficiency", "efficiency_valid"))) |>
+    ggplot(aes(x = as.Date(date), y = p, group = state, color = state)) +
+    geom_line() +
+    theme_minimal() +
+    scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+    scale_y_continuous(labels = scales::percent) +
+    labs(y = "Efficiency", x = "Date") +
+    theme(legend.position = "bottom", legend.title = element_blank())
+```
+

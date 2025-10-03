@@ -1,0 +1,18 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.DS_Store
+.Renviron
+
+*_cache
+*_files
+
+# Directories
+data
+/.quarto/
+img
+notes
+dev
+
+scripts/x

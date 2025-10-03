@@ -1,0 +1,205 @@
+---
+title: "Open Science Registrations on OSF"
+date: "2025-09-18"
+date-modified: last-modified
+---
+
+# Overview
+This vignette examines candidacy criteria for lifecycle open science among OSF Registrations.
+
+Candidate registrations meet standards for and *openness*, *non-deprecation*, *authenticity*.  Specifically, an open-science registraiton must be:
+
+**Open**
+
+1. Public (open-1)
+2. ~~Not embargoed (open-2)~~
+
+**Non-deprecated**
+
+3. Registered (nondeprecated-1)
+4. Not deleted (nondeprecated-2)
+5. Not retracted (nondeprecated-3)
+
+**Authentic**
+
+6. Not spam (authentic-1)
+
+## Operationalization
+
+We can use the date variables from the `registration` dataset and relevant actions from the `osf_nodelog` table to generate a time series dataset of OSF Registrations. 
+
+From the `osf_abstractnode` table, we already know when the following actions occured:
+
+- `created`
+- `registered_date`
+- `deleted`
+
+To establish *when* a registration becomes: 
+
+- public, we need to look for the `made_public` and `made_private` action types in the `osf_nodelog` table.  
+- (un)embargoed, we need to look for corresponding actions with the `embargo_` prefix in the `osf_nodelog` table.
+- retracted, we will look for corresponding actions with the `retraction_` prefix in the `osf_nodelog` table.
+- spam, we look for the actions of type `confirm_spam` in the `osf_nodelog` table.
+
+For every criteria of interest (i.e., public, non-embargoed, registered, non-deleted, non-retracted, non-spam), if we cannot find a corresponding action in the `osf_nodelog` table, we will assume that the criteria is met at the time of creation (`created`).
+
+## Implementation
+
+See `registrations.r` and `registration-ts.r` for the bulk of the implementation details.  For now, we just load the datasets we need.
+
+```{r}
+# Packages
+library(arrow)
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(purrr)
+library(rlang)
+library(timetk)
+library(gt)
+
+# Modules
+box::use(
+    R / connect[open_parquet],
+    R / helpers[tidy_registry_names],
+    R / plot[pivoter, factorizer, ts_prep]
+)
+
+# Data sources
+all_ts <- read_parquet(here::here("data/registration_tsmonthly.parquet"))
+registry_ts <- read_parquet(here::here("data/registration_registries_tsmonthly.parquet")) |>
+    mutate(registry = tidy_registry_names(registry))
+
+# Pivot for plots and assign labels
+all_summary <- pivoter(all_ts) |>
+    ts_prep()
+registry_summary <- pivoter(registry_ts, registry) |>
+    ts_prep()
+
+# Constants
+MOST_RECENT_CHR <- max(all_ts$date)
+MOST_RECENT <- ymd(MOST_RECENT_CHR)
+TABLE_CRITERIA <- c(
+    "total", "open", "not_deprecated", "authentic",
+    "open_notdep", "open_auth", "notdep_auth",
+    "los_plan")
+TABLE_NAMES <- c(
+    "Total", "Open", "Non-deprecated", "Authentic",
+    "Open + Non-deprecated", "Open + Authentic", "Non-deprecated + Authentic",
+    "Open Science Registration")
+```
+
+
+# Results
+
+## All Registrations
+
+> NOTE: All graphs are interactive.  Click on the legend to toggle series on/off.  You can also use the slider to scroll through the timerange.  Zooming is also supported.
+
+The following plots show the distribution of registrations along multiple (sub)criteria of interest.  The total number of registrations (i.e., all registrations in the database wihthout *any* filtering) is shown in black.
+
+The following graph plots the distribution of registrations along the six different sub-criteria of interest denoted at the beginning.  Registrations can be duplicated across criteria.  The total number of registrations is shown in black.
+
+```{r}
+all_summary |>
+    factorizer(criteria) |>
+    plot_time_series(date, n, .color_var = criteria, .smooth = FALSE,
+    .title = "OSF Registrations by Open Science Subcriteria")
+```
+
+
+The next figure plots the distribution of registrations according to the three main criteria of interest (i.e., Open, Non-deprecated, Authentic).  Plus signs (+) indicate registrations that jointly satisfy 2 or more criteria.  The "Open Science Registration" line plots the number of registrations meeting all 3 criteria.
+
+```{r}
+all_summary |>
+    factorizer(criteria, 2) |>
+    plot_time_series(date, n, .color_var = criteria, .smooth = FALSE,
+    .title = "OSF Registrations by Open Science Criteria")
+
+```
+
+The next graph is just a simplified version of the previous one, where we only show registrations that jointly satisfy 2 or more criteria.  The "Total" line is included for reference.
+
+```{r}
+all_summary |> 
+    factorizer(criteria, 3) |>
+    plot_time_series(date, n, .color_var = criteria, .smooth = FALSE,
+    .title = "OSF Registrations with 2+ Open Science Criteria")
+```
+
+
+
+## Summary by Registry
+
+```{r}
+registry_tbl <- registry_summary |>
+    filter(criteria %in% TABLE_CRITERIA) |>
+    pivot_wider(id_cols = c(date, registry), names_from = criteria, values_from = n)
+colnames(registry_tbl) <- c("Date", "Registry", TABLE_NAMES)
+
+registry_tbl <- registry_tbl |>
+    select(Date, Registry, Total, starts_with("Open")) |>
+    mutate(
+        `OSR / Open` = `Open Science Registration` / Open,
+        `OSR / Total` = `Open Science Registration` / Total)
+
+registry_gtbl <- registry_tbl |>
+    ungroup() |>
+    filter(Date == MOST_RECENT) |>
+    arrange(desc(`Open Science Registration`)) |>
+    select(-Date) |>
+    gt() |>
+    tab_header(
+        title = "Open Science Registrations by Registry",
+        subtitle = paste0("as of ", MOST_RECENT_CHR)) |>
+    fmt_number(columns = c(Total:`Open Science Registration`), decimals = 0) |>
+    fmt_percent(columns = c(`OSR / Open`, `OSR / Total`), decimals = 1) 
+```
+
+
+Here's a summary table of OSF Registrations by Registry:
+
+- `Total`: Total number of OSF Registrations (no filtering at all)
+- `Open`: Number of registrations that are public and not embargoed
+- `Open + Non-deprecated`: Number of registrations that are Open and are registered, not deleted, and not retracted
+- `Open + Authentic`: Number of registrations that are Open and are not spam
+- `Open Science Registration`: Number of registrations meeting all three criteria (i.e., Open + Non-deprecated + Authentic)
+- `OSR / Open`: Percentage of Open (i.e., public and not embargoed) registrations that meet the Open Science Registration criteria
+- `OSR / Total`: Percentage of Total registrations that meet the Open Science Registration criteria
+
+```{r}
+registry_gtbl
+```
+
+
+We can also plot these numbers over time for each registry.  Because of the disparity in the number of registrations between registries, we calculate the percentage of registrations that meeting Open Science Registration criteria.  This are the `OSR / Open` and `OSR / Total` metrics from the previous table.
+
+```{r}
+# Prep
+registry_ptbl <- registry_tbl |>
+    select(Date, Registry, `OSR / Open`, `OSR / Total`) |>
+    pivot_longer(
+        cols = c(`OSR / Open`, `OSR / Total`),
+        names_to = "Metric", values_to = "Percentage") |>
+    ungroup()
+
+# First plot
+registry_ptbl |>
+    filter(Metric == "OSR / Open") |>
+    plot_time_series(Date, Percentage, .color_var = Registry,
+    .smooth = FALSE, .title = "Open Efficiency of OSF Registrations by Registry")
+```
+
+```{r}
+# Second plot
+registry_ptbl |>
+    filter(Metric == "OSR / Total") |>
+    plot_time_series(Date, Percentage, .color_var = Registry,
+    .smooth = FALSE, .title = "Total Efficiency of OSF Registrations by Registry")
+```
+
+
+# CHANGELOG
+- 2025-09-18
+    - Align operationalization of "outputs" and "outcomes" with organizational definitions
+    - Drop non-embargoed requirement from the "Openness" criteria for Open Science Registration (OSR) status

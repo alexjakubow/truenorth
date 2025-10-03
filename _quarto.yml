@@ -1,0 +1,55 @@
+project:
+  type: website
+  render:
+  - "*.qmd"
+  - "!dev/*.qmd"
+  - "!vignettes/los-preprint-assertions.qmd"
+  - "!vignettes/open-preprints.qmd"
+  - "!about.qmd"
+
+website:
+  title: "Tracking True North"
+  page-navigation: true
+  navbar:
+    search: true
+    left:
+      - href: index.qmd
+        text: Home
+      - sidebar:elements
+      - sidebar:projects
+    tools:
+      - href: "https://github.com/alexjakubow/truenorth"
+        icon: github
+
+  sidebar:
+  - id: elements
+    title: "Elements (*ingredients*)"
+    style: docked
+    background: light
+    collapse-level: 2
+    contents:
+      - href: "vignettes/open-registrations.qmd"
+        text: "Open Registrations"
+  - id: projects
+    title: "Projects (*recipes*)"
+    style: docked
+    background: light
+    collapse-level: 2
+    contents:
+      - href: "vignettes/los-registration-badges.qmd"
+        text: "Registration Badges"
+format:
+  html:
+    code-fold: true
+    code-line-numbers: true
+    code-summary: "See the code"
+    code-block-border-left: true
+    theme:
+      - cosmo
+      - brand
+    css: styles.css
+    toc: true
+
+execute:
+  warning: false
+  message: false

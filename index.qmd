@@ -1,0 +1,10 @@
+---
+title: "Tracking True North"
+---
+
+A website for documenting how we measure Lifecycle Open Science on OSF (and beyond).
+
+> **Lifecycle Open Science**
+> *A research project with publicly accessible plans, outputs (data, materials, code), and outcomes that is findable at a publicly accessible location where the plans, outputs, and outcomes are linked.*
+
+

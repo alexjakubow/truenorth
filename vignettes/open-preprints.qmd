@@ -1,0 +1,60 @@
+---
+title: "Open Science Preprints on OSF"
+date: "2025-09-08"
+output: html_document
+---
+
+# Overview
+This vignette examines candidacy criteria for open science among OSF Preprints.
+
+Candidate preprints meet standards for and *openness*, *non-deprecation*, *authenticity*.  Specifically, an open-science registraiton must be:
+
+1. Public (open-1)
+
+2. Published (nondeprecated-1)
+3. Not deleted (nondeprecated-2)
+4. Not withdrawn (nondeprecated-3)
+
+5. Not spam (authentic-1)
+
+# Operationalization
+
+We can use the date variables in the `osf_preprint` table and related actions in the `osf_preprintlog` table to generate a time series dataset of OSF Preprints. 
+
+From the `osf_preprint` table, we already know when the following actions occured:
+
+- `created`
+- `date_published`
+- `date_withdrawn`
+- `deleted`
+
+To get at *when* a preprint becomes: 
+
+- public, we need to look for the `made_public` and `made_private` action types in the `osf_preprintlog` table.  
+
+If a preprint has no visibility actions in the log table *BUT* has `is_public == TRUE` in the `osf_preprint` table, we assume the preprint was made public at the time of creation (`created`)
+
+## Implementation
+
+See `preprints.r` and `preprints-ts.r` for the bulk of the implementation details.  For now, we just load the datasets we need.
+
+```{r setup}
+# Packages
+library(arrow)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(tidyr)
+library(purrr)
+library(rlang)
+
+# Modules
+box::use(
+    R / connect[open_parquet],
+    R / plot [pivoter, factorizer]
+)
+
+# Sources
+all_ts <- read_parquet(here::here("data/preprint_tsmonthly.parquet"))
+provider_ts <- read_parquet(here::here("data/preprint_providers_tsmonthly.parquet"))
+```

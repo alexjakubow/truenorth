@@ -16,18 +16,10 @@ PATHOUT <- glue("{PQROOT}_template.parquet")
 
 
 # PREP REGISTRATIONS -----------------------------------------------------------
-# Registration table
-reg_tbl <- open_parquet(dir = "data", tbl = "registration") |>
-  select(node_id)
-
 # Registration metadata from osf_abstractnode
-node_meta <- open_parquet(tbl = "osf_abstractnode") |>
+reg_meta <- open_parquet(tbl = "osf_abstractnode") |>
   filter(type == "osf.registration") |>
   select(node_id = id, registered_meta)
-
-# Left join using local registration table as source of truth (just in case)
-reg_meta <- reg_tbl |>
-  left_join(node_meta, by = "node_id")
 
 
 # GET TEMPLATE IDS -------------------------------------------------------------

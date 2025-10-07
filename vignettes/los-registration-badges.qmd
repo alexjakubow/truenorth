@@ -10,7 +10,7 @@ This vignette measures lifecycle open science on OSF by looking at open science 
 
 ## Definitions
 
-> **Open Science Registration (OSR)**: An OSF Registration that is jointly *open*, *non-deprecated* and *authentic*
+> **OSR**: An OSF Registration that is jointly *open*, *non-deprecated* and *authentic*
 
 - Openness Criteria:
     1. Public (open-1)
@@ -25,7 +25,7 @@ This vignette measures lifecycle open science on OSF by looking at open science 
     1. Not Spam (authentic-1)
 
 
-> **Lifecycle Open Science Registration (LOS-Reg)**: An OSR that represents a lifecycle open science research project.
+> **LOS-Reg**: An OSR that represents a lifecycle open science research project.
 
 - Lifecycle Opennness Criteria:
 
@@ -49,6 +49,35 @@ box::use(
   R / helpers[tidy_registry_names, tidy_template_names],
   R / plot[pivoter, factorizer, ts_prep]
 )
+
+# Local functions
+table_helper <- function(tbl, title  = "Lifecycle Open Science Registrations", interactive = TRUE, ...) {
+    gtbl <- tbl |>
+        gt() |>
+        tab_header(title = title,
+        subtitle = paste0("as of ", MOST_RECENT_CHR)
+    ) |>
+    fmt_number(columns = c(OSR:`LOS-Reg`), decimals = 0) |>
+    fmt_percent(columns = `LOS-Reg / OSR`, decimals = 2) |>
+    tab_footnote(
+        footnote = md("*OSR: Open Science Registration*"),
+        locations = cells_column_labels(columns = OSR)
+    ) |>
+    tab_footnote(
+        footnote = md("*LOS-Reg: Lifecycle Open Science Registration*"),
+        locations = cells_column_labels(columns = `LOS-Reg`)
+    ) |>
+    opt_footnote_marks("letters") |>
+    opt_row_striping(row_striping = TRUE) 
+
+    if (interactive) {
+        gtbl |>
+            opt_interactive(...) |>
+            opt_horizontal_padding(0)
+    } else {
+        gtbl
+    }
+}
 
 # Data sources
 all_ts <- read_parquet(here::here("data/registration_tsmonthly.parquet")) |>
@@ -74,10 +103,10 @@ template_summary <- pivoter(template_ts, template) |>
 MOST_RECENT_CHR <- max(all_ts$date)
 MOST_RECENT <- ymd(MOST_RECENT_CHR)
 TABLE_CRITERIA <- c(
-    "total", "los_plan", "los_outcomes", "los_outputs", "los_complete")
+    "los_plan", "los_outcomes", "los_outputs", "los_complete")
 TABLE_NAMES <- c(
-    "Total", "Open Science Registration (OSR)", "OSR + Outcome(s)", "OSR + Output(s)",
-    "Lifecycle Open Science Registration (LOS-Reg)"
+    "OSR", "OSR + Outcome(s)", "OSR + Output(s)",
+    "LOS-Reg"
 )
 ```
 
@@ -86,11 +115,10 @@ TABLE_NAMES <- c(
 Here is the current state of LOS research projects on the OSF as of `r max(all_ts$date)`.  For all of the summary tables below, the following fields are included:
 
 - `<GROUP_NAME>`: An optional grouping variable for seeing disaggregated results (e.g., by registry, registration template, etc.)
-- `Total`: Total number of OSF Registrations (no filtering at all)
-- `Open Science Registration (OSR)`: Number of Open Science Registrations (i.e., Open + Non-deprecated + Authentic)
+- `OSR`: Number of Open Science Registrations (i.e., Open + Non-deprecated + Authentic)
 - `OSR + Outcome(s)`: Number of Open Science Registrations with at least one linked outcome badge
 - `OSR + Output(s)`: Number of Open Science Registrations with at least one linked output badge
-- `Lifecycle Open Science Registration (LOS-Reg)`: Number of Open Science Registrations with at least one linked outcome and at least one linked output badge
+- `LOS-Reg`: Lifecycle Open Science Registrations - number of Open Science Registrations with at least one linked outcome and at least one linked output badge
 - `LOS-Reg / OSR`: Percentage of Open Science OSF Registrations (OSR) that are Lifecycle Open Science Registrations (LOS-Reg)
 
 
@@ -104,20 +132,13 @@ names(overall_tbl) <-c("Date", TABLE_NAMES)
 
 overall_tbl <- overall_tbl |>
     mutate(
-        `LOS-Reg / OSR` = `Lifecycle Open Science Registration (LOS-Reg)` / `Open Science Registration (OSR)`,
-        `LOS-Reg / Total` = `Lifecycle Open Science Registration (LOS-Reg)` / Total
+        `LOS-Reg / OSR` = `LOS-Reg` / `OSR`,
     )
 
 today_gtbl <- overall_tbl |>
     filter(Date == MOST_RECENT) |>
-    select(-Date, -`LOS-Reg / Total`) |>
-    gt() |>
-    tab_header(
-        title = "Lifecycle Open Science Registrations",
-        subtitle = paste0("as of ", MOST_RECENT_CHR)
-    ) |>
-    fmt_number(columns = c(Total:`Lifecycle Open Science Registration (LOS-Reg)`), decimals = 0) |>
-    fmt_percent(columns = `LOS-Reg / OSR`, decimals = 2)
+    select(-Date) |>
+    table_helper("Lifecycle Open Science Registrations", use_pagination = FALSE, use_sorting = FALSE)
 
 today_gtbl
 ```
@@ -132,22 +153,23 @@ names(registry_tbl) <-c("Date", "Registry", TABLE_NAMES)
 
 registry_tbl <- registry_tbl |>
     mutate(
-        `LOS-Reg / OSR` = `Lifecycle Open Science Registration (LOS-Reg)` / `Open Science Registration (OSR)`,
-        `LOS-Reg / Total` = `Lifecycle Open Science Registration (LOS-Reg)` / Total
+        `LOS-Reg / OSR` = `LOS-Reg` / `OSR`,
     )
 
 today_registry_gtbl <- registry_tbl |>
     ungroup() |>
     filter(Date == MOST_RECENT) |>
-    arrange(desc(`Lifecycle Open Science Registration (LOS-Reg)`)) |>
-    select(-Date, -`LOS-Reg / Total`) |>
-    gt() |>
-    tab_header(
-        title = "Lifecycle Open Science Registrations by Registry",
-        subtitle = paste0("as of ", MOST_RECENT_CHR)
-    ) |>
-        fmt_number(columns = c(Total:`Lifecycle Open Science Registration (LOS-Reg)`), decimals = 0) |>
-    fmt_percent(columns = `LOS-Reg / OSR`, decimals = 2)
+    arrange(desc(`LOS-Reg`)) |>
+    select(-Date) |>
+    table_helper("Lifecycle Open Science Registrations by Registry", use_pagination = FALSE)
+    # gt() |>
+    # tab_header(
+    #     title = "Lifecycle Open Science Registrations by Registry",
+    #     subtitle = paste0("as of ", MOST_RECENT_CHR)
+    # ) |>
+    #     fmt_number(columns = c(OSR:`LOS-Reg`), decimals = 0) |>
+    # fmt_percent(columns = `LOS-Reg / OSR`, decimals = 2) |>
+    # opt_interactive()
 
 today_registry_gtbl
 ```
@@ -162,22 +184,15 @@ names(template_tbl) <-c("Date", "Template", TABLE_NAMES)
 
 template_tbl <- template_tbl |>
     mutate(
-        `LOS-Reg / OSR` = `Lifecycle Open Science Registration (LOS-Reg)` / `Open Science Registration (OSR)`,
-        `LOS-Reg / Total` = `Lifecycle Open Science Registration (LOS-Reg)` / Total
+        `LOS-Reg / OSR` = `LOS-Reg` / `OSR`
     )
 
 today_template_gtbl <- template_tbl |>
     ungroup() |>
     filter(Date == MOST_RECENT) |>
-    arrange(desc(`Lifecycle Open Science Registration (LOS-Reg)`)) |>
-    select(-Date, -`LOS-Reg / Total`) |>
-    gt() |>
-    tab_header(
-        title = "Lifecycle Open Science Registrations by Template",
-        subtitle = paste0("as of ", MOST_RECENT_CHR)
-    ) |>
-        fmt_number(columns = c(Total:`Lifecycle Open Science Registration (LOS-Reg)`), decimals = 0) |>
-    fmt_percent(columns = `LOS-Reg / OSR`, decimals = 2)
+    arrange(desc(`LOS-Reg`)) |>
+    select(-Date) |>
+    table_helper("Lifecycle Open Science Registrations by Template", use_search = TRUE)
 
 today_template_gtbl
 ```
@@ -201,9 +216,9 @@ We can also plot these percentages over time for each registry.  Because of the 
 
 ```{r}
 registry_ptbl <- registry_tbl |>
-    select(Date, Registry, `LOS-Reg / OSR`, `LOS-Reg / Total`) |>
+    select(Date, Registry, `LOS-Reg / OSR`) |>
     pivot_longer(
-        cols = c(`LOS-Reg / OSR`, `LOS-Reg / Total`),
+        cols = c(`LOS-Reg / OSR`),
         names_to = "Metric", values_to = "Percentage") |>
     ungroup()
 
@@ -223,6 +238,6 @@ registry_ptbl |>
 - 2025-10-01
     - Align operationalization of "outputs" and "outcomes" with organizational definitions
     - Drop counts and computations involving "Total" (i.e.,unfiltered) registrations
-    - Drop non-embargoed requirement from the "Openness" criteria for Open Science Registration (OSR) status
+    - Drop non-embargoed requirement from the "Openness" criteria for OSR status
     
 - 2023-09-15: Initial version

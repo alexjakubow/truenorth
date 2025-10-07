@@ -11,6 +11,8 @@ project:
 website:
   title: "Tracking True North"
   page-navigation: true
+  back-to-top-navigation: true
+  reader-mode: true
   navbar:
     search: true
     left:
@@ -25,7 +27,7 @@ website:
   sidebar:
   - id: elements
     title: "Elements (*ingredients*)"
-    style: docked
+    style: floating
     background: light
     collapse-level: 2
     contents:
@@ -33,9 +35,9 @@ website:
         text: "Open Registrations"
   - id: projects
     title: "Projects (*recipes*)"
-    style: docked
+    style: floating
     background: light
-    collapse-level: 2
+    collapse-level: 1
     contents:
       - href: "vignettes/los-registration-badges.qmd"
         text: "Registration Badges"

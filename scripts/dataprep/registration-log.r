@@ -47,7 +47,7 @@ CLOSED_ACTIONS <- c(
 # I/O
 PQROOT <- "data/registration"
 PATH_REG <- glue("{PQROOT}.parquet")
-PATH_REG_LOG <- glue("{PQROOT}_log2.parquet")
+PATH_REG_LOG <- glue("{PQROOT}_log.parquet")
 
 # Open tables
 nodelog_tbl <- open_parquet(tbl = "osf_nodelog", duck = FALSE)

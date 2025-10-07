@@ -206,11 +206,11 @@ elapsed <- Sys.time() - s
 print(elapsed)
 
 # Summaries by registry-template
-s <- Sys.time()
-regtemplate_summaries <- compute_all_summaries(DATES, registry, template)
-write_parquet(registry_template_summaries, PATH_REGTMP)
-elapsed <- Sys.time() - s
-print(elapsed)
+# s <- Sys.time()
+# regtemplate_summaries <- compute_all_summaries(DATES, registry, template)
+# write_parquet(regtemplate_summaries, PATH_REGTMP)
+# elapsed <- Sys.time() - s
+# print(elapsed)
 
 # DIAGNOSTICS ------------------------------------------------------------------
 # Check alternative method

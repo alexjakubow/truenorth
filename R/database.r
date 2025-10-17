@@ -1,3 +1,8 @@
+box::use(
+  R / criteria[CRITERIA_OSR]
+)
+
+
 #' Last logged action query
 #'
 #' @param tbl Database table connection to query (duckdb)

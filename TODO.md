@@ -1,5 +1,5 @@
 # In Progress
-- [ ] Time from registration to LOS-Reg
+- [/] Time from registration to LOS-Reg
 
 # Backlog
 ## Analyses
@@ -7,7 +7,6 @@
 
 ## Documentation
 - [ ] Update README
-- [ ] Overview of data generation process (from postgres to parquet via R/DuckDB)
 
 ## Workflow
 - [ ] Processing function for `registration-events.r` to iterate for a paticular bundle of actions and criteria
@@ -19,6 +18,7 @@
 - [ ] Transition to dashboard
 
 # Completed
+- [x] Overview of data generation process (from postgres to parquet via R/DuckDB)  (available [here](https://github.com/alexjakubow/archer))
 - [x] Update with more recent backup
 - [x] Sortable tables
 - [x] Fix inconsistent navigation headers

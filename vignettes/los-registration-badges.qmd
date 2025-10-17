@@ -29,17 +29,22 @@ This vignette measures lifecycle open science on OSF by looking at open science 
 
 - Lifecycle Opennness Criteria:
 
-    1. **Outcome** - The OSR has at least 1 linked [Open Practice Badge](https://help.osf.io/article/452-open-practice-badges) from among: "Data", "Analytic Code", "Materials" or "Supplements".  
-    2. **Output** - The OSR has at least 1 linked "Papers" Open Practice Badge.
+    1. **Output** - The OSR has at least 1 linked [Open Practice Resource](https://help.osf.io/article/452-open-practice-badges) from among: "Data", "Analytic Code", "Materials" or "Supplements".  
+    2. **Outcome** - The OSR has at least 1 linked "Papers" Open Practice Resource.
 
 
 # Results
 ```{r}
 # Packages
 library(arrow)
+library(ggplot2)
+library(ggiraph)
+library(glue)
 library(gt)
 library(dplyr)
 library(lubridate)
+library(plotly)
+library(scales)
 library(tidyr)
 library(timetk)
 
@@ -47,8 +52,12 @@ library(timetk)
 # Modules
 box::use(
   R / helpers[tidy_registry_names, tidy_template_names],
-  R / plot[pivoter, factorizer, ts_prep]
+  R / plot[pivoter, factorizer, ts_prep],
+  R / parameters[DATES, OUTPUTS, OUTCOMES]
 )
+
+OUTPUTS <- stringr::str_to_title(OUTPUTS)
+OUTCOMES <- stringr::str_to_title(OUTCOMES)
 
 # Local functions
 table_helper <- function(tbl, title  = "Lifecycle Open Science Registrations", interactive = TRUE, ...) {
@@ -79,6 +88,53 @@ table_helper <- function(tbl, title  = "Lifecycle Open Science Registrations", i
     }
 }
 
+
+tte_table <- function(tbl, title = "Time to Lifecycle Open Status (in days)", group_label = NULL, ...) {
+  # Set title
+  TITLE <- "Time to Lifecycle Open Status (in days)"
+  if (!is.null(group_label)) {
+    TITLE <- paste0(TITLE, " by ", stringr::str_to_title(group_label))
+  }
+
+  # Subset data
+  tbl <- tbl |>
+    select(..., event, n, p, mean, p50, sd, min, max) |>
+    filter(tolower(event) %in% c("output", "outcome", "lifecycle")) |>
+    mutate(
+      event = stringr::str_to_title(event),
+      event = factor(event, levels = c("Output", "Outcome", "Lifecycle"))
+    ) |>
+    arrange(event) |>
+    mutate(event = as.character(event))
+
+  # Format table
+  gtbl <- tbl |>
+    gt(row_group_as_column = TRUE) |>
+    tab_header(
+      title = TITLE,
+      subtitle = "Among all Open Science Registrations (OSR)") |>
+    cols_label(
+      event = "Event",
+      n = "Count",
+      p = "Percent",
+      mean = "Mean",
+      p50 = "Median",
+      sd = "Std. Dev.",
+      min = "Min",
+      max = "Max"
+    ) |>
+    #Spanners
+    tab_spanner(columns = c(n, p), label = "Prevalance") |>
+    tab_spanner(columns = c(mean, p50, sd, min, max), label = "Distribution") |>
+    # Value formatting
+    fmt_number(columns = c(n, mean, p50, sd, min, max), decimals = 0) |>
+    fmt_percent(columns = p, decimals = 1)
+  # Return table
+  gtbl
+}
+
+
+
 # Data sources
 all_ts <- read_parquet(here::here("data/registration_tsmonthly.parquet")) |>
     filter(date >= "2022-08-01")
@@ -103,10 +159,9 @@ template_summary <- pivoter(template_ts, template) |>
 MOST_RECENT_CHR <- max(all_ts$date)
 MOST_RECENT <- ymd(MOST_RECENT_CHR)
 TABLE_CRITERIA <- c(
-    "los_plan", "los_outcomes", "los_outputs", "los_complete")
+    "los_plan", "los_outputs", "los_outcomes", "los_complete")
 TABLE_NAMES <- c(
-    "OSR", "OSR + Outcome(s)", "OSR + Output(s)",
-    "LOS-Reg"
+    "OSR", "OSR + Output(s)", "OSR + Outcome(s)","LOS-Reg"
 )
 ```
 
@@ -116,9 +171,9 @@ Here is the current state of LOS research projects on the OSF as of `r max(all_t
 
 - `<GROUP_NAME>`: An optional grouping variable for seeing disaggregated results (e.g., by registry, registration template, etc.)
 - `OSR`: Number of Open Science Registrations (i.e., Open + Non-deprecated + Authentic)
-- `OSR + Outcome(s)`: Number of Open Science Registrations with at least one linked outcome badge
-- `OSR + Output(s)`: Number of Open Science Registrations with at least one linked output badge
-- `LOS-Reg`: Lifecycle Open Science Registrations - number of Open Science Registrations with at least one linked outcome and at least one linked output badge
+- `OSR + Output(s)`: Number of Open Science Registrations with at least one linked output resource
+- `OSR + Outcome(s)`: Number of Open Science Registrations with at least one linked outcome resource
+- `LOS-Reg`: Lifecycle Open Science Registrations - number of Open Science Registrations with at least one linked outcome and at least one linked output resource
 - `LOS-Reg / OSR`: Percentage of Open Science OSF Registrations (OSR) that are Lifecycle Open Science Registrations (LOS-Reg)
 
 
@@ -162,14 +217,6 @@ today_registry_gtbl <- registry_tbl |>
     arrange(desc(`LOS-Reg`)) |>
     select(-Date) |>
     table_helper("Lifecycle Open Science Registrations by Registry", use_pagination = FALSE)
-    # gt() |>
-    # tab_header(
-    #     title = "Lifecycle Open Science Registrations by Registry",
-    #     subtitle = paste0("as of ", MOST_RECENT_CHR)
-    # ) |>
-    #     fmt_number(columns = c(OSR:`LOS-Reg`), decimals = 0) |>
-    # fmt_percent(columns = `LOS-Reg / OSR`, decimals = 2) |>
-    # opt_interactive()
 
 today_registry_gtbl
 ```
@@ -195,6 +242,380 @@ today_template_gtbl <- template_tbl |>
     table_helper("Lifecycle Open Science Registrations by Template", use_search = TRUE)
 
 today_template_gtbl
+```
+
+## Time to Lifecycle Open Status
+
+
+```{r}
+# TODO: Compute date of OSR status from logged event tables, not just current status
+reg_tbl <- read_parquet(here::here("data/registration_current.parquet")) |>
+    filter(is_osr == 1) |>
+    select(node_id, registry, registered_date) 
+reg_events <- read_parquet(here::here("data/registration_badges_time.parquet")) |>
+    inner_join(reg_tbl, by = "node_id")
+
+
+#' Time to event summarizer
+tte_summarizer <- function(tbl, t = time_to_event, x = event, ...) {
+    # Totals
+    df_n <- tbl |>
+        summarize(
+            .by = c(...),
+            N = n_distinct(node_id)
+        ) |>
+        cross_join(distinct(tbl, {{ x }}))
+
+    # Summary
+    tbl |>
+        summarise(
+            .by = c({{ x }}, ...),
+            n = sum(!is.na({{ t }})),
+            mean = mean({{ t }}, na.rm = TRUE),
+            p50 = median({{ t }}, na.rm = TRUE),
+            sd = sd({{ t }}, na.rm = TRUE),
+            min = min({{ t }}, na.rm = TRUE),
+            max = max({{ t }}, na.rm = TRUE),
+        ) |>
+        left_join(df_n) |>
+        mutate(
+            p = n / N
+        ) |>
+        select(..., {{ x }}, n, p, mean, p50, sd, min, max)
+}
+```
+
+
+Unless otherwise stated, the starting sample for these analyses is all Open Science Registrations (OSR).  As of `r MOST_RECENT`, there are `r format(n_distinct(reg_events$node_id), big.mark = ",")` Open Science Registrations (OSR) in the OSF.
+
+```{r}
+# Long form (among earliest connected resources of each type)
+df_long <- reg_events |>
+    select(node_id, registered_date, date_lifecycle, starts_with("date1_")) |>
+    rename(date1_lifecycle = date_lifecycle) |>
+    pivot_longer(
+        cols = dplyr::matches("date1_"),
+        names_to = "event",
+        names_prefix = "date1_",
+        values_to = "date"
+    ) |>
+    arrange(node_id, date)
+
+#  Add sequencing
+df_sequence <- df_long |>
+    filter(event %in% c(tolower(OUTCOMES), tolower(OUTPUTS)) & !is.na(date)) |>
+    group_by(node_id) |>
+    arrange(date) |>
+    mutate(
+        sequence = row_number()
+    ) |>
+    ungroup() |>
+    select(node_id, event, sequence)
+
+# Time-to-Event
+df_tte <- df_long |>
+    left_join(df_sequence) |>
+    mutate(time_to_event = as.numeric(date - registered_date, units = "days")) 
+
+```
+
+The following table summarizes how long it takes for an OSR to become fully lifecycle open.  Each row corresponds to three different milestones in the research project lifecycle:
+
+1. The first linked output resource
+2. The first linked outcome resource
+3. The achievement of lifecycle open status
+
+The "Prevalance" columns report the number and percentage of OSRs that have reached each milestone, while the "Distribution" columns provide summary statistics characterizing the center, spread, and range of time to each milestone.
+
+```{r}
+df_summary <- tte_summarizer(df_tte, t = time_to_event, x = event)
+tte_table(df_summary)
+```
+
+The following interactive graphic provides the same information via a boxplot.
+
+```{r}
+p <- df_tte |>
+    filter(event %in% c("output", "outcome", "lifecycle")) |>
+    mutate(
+        event = stringr::str_to_title(event),
+        event = factor(event, levels = c("Output", "Outcome", "Lifecycle"))
+    ) |>
+    ggplot() +
+    geom_boxplot_interactive(
+        aes(
+            x = event,
+            y = time_to_event,
+            fill = event,
+            data_id = event,
+            group = event,
+            tooltip = after_stat({
+                paste0(
+                    "Event: ", stringr::str_to_title(.data$fill),
+                    "\n",
+                    "\nMax: ", comma(.data$max),
+                    "\nQ3: ", comma(.data$upper),
+                    "\nMedian: ", comma(round(.data$middle)),
+                    "\nQ1: ", comma(.data$lower),
+                    "\nMin: ", comma(round(.data$min))
+                )
+            }),
+            outlier.tooltip = paste(
+                "Days: ", comma(round(time_to_event)))
+            )
+        ) +
+        guides(fill = "none") +
+        scale_y_continuous(labels = label_comma()) +
+        labs(
+            y = "Days",
+            x = "Event",
+            title = "Time to Lifecycle Open Status (in days)",
+        ) +
+        theme_minimal()
+g <- girafe(ggobj = p)
+g
+```
+
+We can disaggreate our findings further by looking at the prevalance and distribution of time for individual resources (code, data, materials, supplements, and papers).  As before, we present results via a table and an interactive boxplot.
+
+```{r}
+df_summary |>
+    mutate(
+        event = stringr::str_to_title(event)
+    ) |>
+    filter(event %in% c("Code", "Data", "Materials", "Supplements", "Papers")) |>
+    gt() |>
+    # Title
+    tab_header(
+        title = "Time to First Linked Resource (in days)",
+        subtitle = paste0("Among all Open Science Registrations (OSR)")
+    ) |>
+    # Column labels
+    cols_label(
+        event = "Event",
+        n = "Count",
+        p = "Percent",
+        mean = "Mean",
+        p50 = "Median",
+        sd = "Std. Dev.",
+        min = "Min",
+        max = "Max"
+    ) |>
+    # Spanners
+    tab_spanner(columns = c(n, p), label = "Prevalance") |>
+    tab_spanner(columns = c(mean, p50, sd, min, max), label = "Distribution") |>
+    # Value formatting
+    fmt_number(columns = c(n, mean, p50, sd, min, max), decimals = 0) |>
+    fmt_percent(columns = p, decimals = 1) 
+```
+
+```{r}
+p <- df_tte |>
+    filter(event %in% c("code", "data", "materials", "supplements", "papers")) |>
+    mutate(
+        event = stringr::str_to_title(event)
+    ) |>
+    ggplot() +
+    geom_boxplot_interactive(
+        aes(
+            x = event,
+            y = time_to_event,
+            fill = event,
+            data_id = event,
+            group = event,
+            tooltip = after_stat({
+                paste0(
+                    "Event: ", stringr::str_to_title(.data$fill),
+                    "\n",
+                    "\nMax: ", comma(.data$max),
+                    "\nQ3: ", comma(.data$upper),
+                    "\nMedian: ", comma(round(.data$middle)),
+                    "\nQ1: ", comma(.data$lower),
+                    "\nMin: ", comma(round(.data$min))
+                )
+            }),
+            outlier.tooltip = paste(
+                "Days: ", comma(round(time_to_event)))
+            )
+        ) +
+        guides(fill = "none") +
+        scale_y_continuous(labels = label_comma()) +
+        labs(
+            y = "Days",
+            x = "Event",
+            title = "Time to First Linked Resource (in days)",
+        ) +
+        theme_minimal()
+g <- girafe(ggobj = p)
+g
+```
+
+The following tables looks at differences in time to lifecycle open science moments (first output, first outcome, and lifeycle open) by registry.  To ease interpretion, rows with zero counts are omitted.  Results can be sorted along any column and the search box can be used to filter results.
+
+```{r}
+df_summary_registry <- df_tte |>
+    left_join(select(reg_tbl, node_id, registry), by = "node_id") |>
+    tte_summarizer(t = time_to_event, x = event, registry) |>
+    mutate(registry = tidy_registry_names(registry)) |>
+    filter(n > 0) |>
+    rename(Registry = registry) 
+
+tte_table(tbl = df_summary_registry, title = "Time to Lifecycle Open Status by Registry (in days)", group_label = "Registry", Registry) |>
+    opt_interactive(use_search = TRUE, use_pagination = FALSE) |>
+    opt_horizontal_padding(0)
+```
+
+
+### Sequencing
+
+There are several potential insights related to the *sequencing* of resource connections.  The following table summarizes sequencing patterns for OSRs with at least two linked resources.  The rows correspond to resource types (code, data, materials, supplements, and papers), while the columns sequencing order.
+
+<!-- For instance, when looking within the "First" column, we see that Data is most frequently linked first (40%), followed by Supplements.  Moving across the table, Code tends to follow (54% of all second connections), and Papers tend to appear more commonly in the later connections (4th and 5th).  Supplements are most likely to be the last linked resource provided---at least among our sample of OSRs with at least two linked resources and in instances where users went through the effort of already linking four resources. -->
+
+IN PROGRESS....
+
+```{r}
+# # Long form
+# df_sequence <- df_tte |>
+#     filter(event %in% c(tolower(OUTCOMES), tolower(OUTPUTS)))
+# # df_sequence <- reg_events |>
+# #     select(node_id, starts_with("date1_"), -date1_outcome, -date1_output) |>
+# #     pivot_longer(
+# #         cols = dplyr::matches("date1_"),
+# #         names_to = "resource",
+# #         names_prefix = "date1_",
+# #         values_to = "date"
+# #     ) |>
+# #     group_by(node_id) |>
+# #     arrange(date) |>
+# #     mutate(
+# #         sequence = row_number()
+# #     ) |>
+# #     ungroup()
+
+# # x <- 
+
+# df_n <- df_sequence |>
+#     summarize(
+#         .by = sequence,
+#         N = n_distinct(node_id)
+#     ) |>
+#     cross_join(distinct(df_sequence, event))
+
+# df_summary <- df_sequence |>
+#     summarize(
+#         .by = c(sequence, event),
+#         n = sum(!is.na(time_to_event), na.rm = TRUE)
+#     ) |>
+#     left_join(df_n) |>
+#     mutate(
+#         p = n / N
+#     ) 
+
+# df_summary |>
+#     filter()
+#     select(-N)
+
+
+# x <- summarizer(df_sequence, x = as.numeric(date), id_cols = "node_id", group_cols = "sequence") |>
+#     select(event, sequence, n, p) |>
+#     arrange(sequence, event) |>
+#     group_by(sequence) |>
+#     mutate(
+#         p = n / sum(n, na.rm = TRUE)
+#     ) |>
+#     ungroup() |>
+#     pivot_wider(
+#         id_cols = event,
+#         names_from = sequence,
+#         values_from = c(n, p),
+#         names_glue = "{.value}_{sequence}"
+#     ) |>
+#     select(resource, n_1, p_1, n_2, p_2, n_3, p_3, n_4, p_4, n_5, p_5) |>
+#     mutate(
+#         resource = stringr::str_to_title(resource)
+#     )
+
+# # Table
+# x |>
+#     gt(rowname_col = "resource") |>
+#     tab_header(
+#         title = "Sequence of Connected Resources",
+#         subtitle = paste0("Among all Open Science Registrations (OSR) [n = ", format(n_distinct(df_sequence$node_id), big.mark = ","), "]")) |>
+#     cols_label(
+#         starts_with("n_") ~ "Count",
+#         starts_with("p_") ~ "Percent"
+#     ) |>
+#     # Spanners
+#     tab_spanner(
+#         columns = ends_with("1"),
+#         label = md(glue("**First**<br>(n={comma(sum(x$n_1))})"))) |>
+#     tab_spanner(
+#         columns = ends_with("2"),
+#         label = md(glue("**Second**<br>(n={comma(sum(x$n_2))})"))) |>
+#     tab_spanner(
+#         columns = ends_with("3"),
+#         label = md(glue("**Third**<br>(n={comma(sum(x$n_3))})"))) |>
+#     tab_spanner(
+#         columns = ends_with("4"),
+#         label = md(glue("**Fourth**<br>(n={comma(sum(x$n_4))})"))) |>
+#     tab_spanner(
+#         columns = ends_with("5"),
+#         label = md(glue("**Fifth**<br>(n={comma(sum(x$n_5))})"))) |>
+#     # Row groups
+#     tab_row_group(
+#         label = "Outputs",
+#         rows = OUTPUTS) |>
+#     tab_row_group(
+#         label = "Outcomes",
+#         rows = OUTCOMES
+#     ) |>
+#     tab_stub_indent(rows = c(OUTPUTS, OUTCOMES), indent = 3) |>
+#     tab_options(
+#         row_group.background.color = "gray95"
+#     ) |>
+#     row_group_order(
+#         groups = c("Outputs", "Outcomes")
+#     ) |>
+#     # Value formatting
+#     fmt_number(columns = starts_with("n_"), decimals = 0) |>
+#     fmt_percent(columns = starts_with("p_"), decimals = 1) |>
+#     opt_interactive()
+```
+
+
+### Resource Latency
+
+A third potential line of inquiry searches for patterns in the *latency*--or elapsed-time--between resource connections within the same OSR.  These sorts of questions are obviously limited to OSRs with at least two connected resources, which we could subdivide further into two different sets of analyses:
+
+- *Inter*-resource latency - Questions of interest rooted in the amount of time between connected resources of *different types* (e.g., Linking a dataset and the code that produced it)
+- *Intra*-resource latency - Questions of interest rooted in the amount of time between connected resources of the *same type* (e.g., Linking multiple datasets)
+
+#### Inter-resource latency
+
+IN PROGRESS...
+
+```{r}
+# # Long form
+# df_latency <- reg_events |>
+#     select(node_id, starts_with("date1_"), -date1_outcome, -date1_output) |>
+#     pivot_longer(
+#         cols = dplyr::matches("date1_"),
+#         names_to = "resource",
+#         names_prefix = "date1_",
+#         values_to = "date",
+#         values_drop_na = TRUE
+#     ) |>
+#     group_by(node_id) |>
+#     arrange(date) |>
+#     mutate(
+#         sequence = row_number(),
+#         latency = as.numeric(date - lag(date), units = "days")
+#     ) |>
+#     filter(sequence > 1) |>
+#     ungroup()
+
+# df_summary <- summarizer(df_latency, x = latency, id_cols = "node_id", group_cols = "sequence")
 ```
 
 ## Time Series
@@ -229,6 +650,10 @@ registry_ptbl |>
 ```
 
 # CHANGELOG
+
+- 2025-10-17
+    - Initial time-to-event analyses
+    - Revisions to README.md
 
 - 2025-10-03
     - Disaggreagate by OSF Registration template

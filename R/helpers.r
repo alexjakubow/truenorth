@@ -1,13 +1,5 @@
-TYPES <- c(
-  preprint = "NP",
-  registration = "NR",
-  project = "NP",
-  component = "NC",
-  user = "U"
-)
-
 # Lookup an object's ID using its GUID
-lookup_id <- function(dm, guid) {
+lookup_id <- function(dm, guid, type) {
   dm |>
     dm::dm_zoom_to(osf_guid) |>
     dplyr::select(id, `_id`) |>
@@ -15,14 +7,13 @@ lookup_id <- function(dm, guid) {
     dplyr::pull(id)
 }
 
-
 # Lookup an object's GUID using its ID and type
-lookup_id <- function(dm, guid) {
+lookup_guid <- function(dm, id, type) {
   dm |>
     dm::dm_zoom_to(osf_guid) |>
     dplyr::select(id, `_id`) |>
-    dplyr::filter(`_id` == guid) |>
-    dplyr::pull(id)
+    dplyr::filter(id == id) |>
+    dplyr::pull(`_id`)
 }
 
 #' Generalized summary function for tibbles and data frames
@@ -34,21 +25,6 @@ summarizer <- function(df, ...) {
       n = dplyr::n()
     )
 }
-
-#' @export
-create_uid <- function(tbl, id, type) {
-  tbl |>
-    dplyr::mutate(uid = paste0(TYPES[type], "_", {{ id }}))
-}
-
-# I/O HELPERS ------------------------------------------------------------------
-#' Open and load a Parquet table from relative path to `data/`
-#' @export
-openup <- function(tbl) {
-  open_parquet(dir = here::here("data"), tbl) |>
-    dplyr::collect()
-}
-
 
 # GOOGLE HELPERS ---------------------------------------------------------------
 #' Wrapper to authenticate with Google APIs

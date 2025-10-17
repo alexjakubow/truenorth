@@ -9,7 +9,7 @@ library(here)
 PATH <- file.path(here(), "scripts", "dataprep")
 
 
-# REGISTRATION-BADGES ---------------------------------------------------------
+# REGISTRATION-RESOURCES -------------------------------------------------------
 # Detailed tables
 source(file.path(PATH, "registration-schema.r"))
 
@@ -21,5 +21,6 @@ source(file.path(PATH, "registration-log.r"))
 source(file.path(PATH, "registration-events.r"))
 source(file.path(PATH, "registration-badges.r"))
 
-# Analysis dataset
-source(file.path(PATH, "registration-ts.r"))
+# Analysis datasets
+source(file.path(PATH, "registration-ts.r")) # Monthly TS summaries + current status
+source(file.path(PATH, "registration-ttlos.r")) # Time-to-event dataset

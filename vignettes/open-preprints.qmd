@@ -1,23 +1,31 @@
 ---
 title: "Open Science Preprints on OSF"
 date: "2025-09-08"
-output: html_document
+date-modified: last-modified
 ---
 
 # Overview
+
 This vignette examines candidacy criteria for open science among OSF Preprints.
 
 Candidate preprints meet standards for and *openness*, *non-deprecation*, *authenticity*.  Specifically, an open-science registraiton must be:
 
+
+**Open**
+
 1. Public (open-1)
+
+**Non-deprecated**
 
 2. Published (nondeprecated-1)
 3. Not deleted (nondeprecated-2)
 4. Not withdrawn (nondeprecated-3)
 
+**Authentic**
+
 5. Not spam (authentic-1)
 
-# Operationalization
+## Operationalization
 
 We can use the date variables in the `osf_preprint` table and related actions in the `osf_preprintlog` table to generate a time series dataset of OSF Preprints. 
 
@@ -32,7 +40,7 @@ To get at *when* a preprint becomes:
 
 - public, we need to look for the `made_public` and `made_private` action types in the `osf_preprintlog` table.  
 
-If a preprint has no visibility actions in the log table *BUT* has `is_public == TRUE` in the `osf_preprint` table, we assume the preprint was made public at the time of creation (`created`)
+If a preprint has no visibility actions in the log table but appears as public in the `osf_preprint` table, we assume the preprint was made public at the time of creation (`created`)
 
 ## Implementation
 
@@ -42,19 +50,146 @@ See `preprints.r` and `preprints-ts.r` for the bulk of the implementation detail
 # Packages
 library(arrow)
 library(dplyr)
-library(ggplot2)
 library(lubridate)
 library(tidyr)
 library(purrr)
 library(rlang)
+library(timetk)
+library(gt)
 
 # Modules
 box::use(
     R / connect[open_parquet],
-    R / plot [pivoter, factorizer]
+    R / helpers[tidy_provider_names] 
+    R / plot[pivoter, factorizer, ts_prep],
 )
 
 # Sources
 all_ts <- read_parquet(here::here("data/preprint_tsmonthly.parquet"))
-provider_ts <- read_parquet(here::here("data/preprint_providers_tsmonthly.parquet"))
+provider_ts <- read_parquet(here::here("data/preprint_providers_tsmonthly.parquet")) |>
+    mutate(provider = tidy_provider_names(provider))
+
+# Pivot for plots and assign labels
+all_summary <- pivoter(all_ts) |>
+    ts_prep()
+provider_summary <- pivoter(provider_ts, provider) |>
+    ts_prep()
+
+# Constants
+MOST_RECENT_CHR <- max(all_ts$date)
+MOST_RECENT <- ymd(MOST_RECENT_CHR)
+TABLE_CRITERIA <- c(
+    "total", "open", "not_deprecated", "authentic",
+    "open_notdep", "open_auth", "notdep_auth",
+    "los_outcomes")
+TABLE_NAMES <- c(
+    "Total", "Open", "Non-deprecated", "Authentic",
+    "Open + Non-deprecated", "Open + Authentic", "Non-deprecated + Authentic",
+    "Open Science Preprint")
+```
+
+
+# Results
+
+## All Preprints
+
+> NOTE: All graphs are interactive.  Click on the legend to toggle series on/off.  You can also use the slider to scroll through the timerange.  Zooming is also supported.
+
+The following plots show the distribution of preprints along multiple (sub)criteria of interest.  The total number of preprints (i.e., all preprints in the database wihthout *any* filtering) is shown in black.
+
+The following graph plots the distribution of preprints along the five different sub-criteria of interest denoted at the beginning.  Preprints can be duplicated across criteria.  The total number of preprints is shown in black.
+
+```{r}
+all_summary |>
+    factorizer(criteria) |>
+    plot_time_series(date, n, .color_var = criteria, .smooth = FALSE,
+    .title = "OSF Preprints by Open Science Subcriteria")
+```
+
+The next figure plots the distribution of preprints according to the three main criteria of interest (i.e., Open, Non-deprecated, Authentic).  Plus signs (+) indicate preprints that jointly satisfy 2 or more criteria.  The "Open Science Preprint" line plots the number of preprints meeting all 3 criteria.
+
+```{r}
+all_summary |>
+    factorizer(criteria, 2) |>
+    plot_time_series(date, n, .color_var = criteria, .smooth = FALSE,
+    .title = "OSF Preprints by Open Science Criteria")
+
+```
+
+The next graph is just a simplified version of the previous one, where we only show preprints that jointly satisfy 2 or more criteria.  The "Total" line is included for reference.
+
+```{r}
+all_summary |> 
+    factorizer(criteria, 3) |>
+    plot_time_series(date, n, .color_var = criteria, .smooth = FALSE,
+    .title = "OSF Preprints with 2+ Open Science Criteria")
+```
+
+
+## Summary by Provider
+
+```{r}
+provider_tbl <- provider_summary |>
+    filter(criteria %in% TABLE_CRITERIA) |>
+    pivot_wider(id_cols = c(date, provider), names_from = criteria, values_from = n)
+colnames(provider_tbl) <- c("Date", "Provider", TABLE_NAMES)
+
+provider_tbl <- provider_tbl |>
+    select(Date, Provider, Total, starts_with("Open")) |>
+    mutate(
+        `OSP / Open` = `Open Science Preprint` / Open,
+        `OSP / Total` = `Open Science Preprint` / Total)
+
+provider_gtbl <- provider_tbl |>
+    ungroup() |>
+    filter(Date == MOST_RECENT) |>
+    arrange(desc(`Open Science Preprint`)) |>
+    select(-Date) |>
+    gt() |>
+    tab_header(
+        title = "Open Science Preprints by Provider",
+        subtitle = paste0("as of ", MOST_RECENT_CHR)) |>
+    fmt_number(columns = c(Total:`Open Science Preprint`), decimals = 0) |>
+    fmt_percent(columns = c(`OSP / Open`, `OSP / Total`), decimals = 1) 
+```
+
+
+Here's a summary table of OSF Preprints by Provider:
+
+- `Total`: Total number of OSF Preprints (no filtering at all)
+- `Open`: Number of preprints that are public and not embargoed
+- `Open + Non-deprecated`: Number of preprints that are Open and are registered, not deleted, and not retracted
+- `Open + Authentic`: Number of preprints that are Open and are not spam
+- `Open Science Preprint`: Number of preprints meeting all three criteria (i.e., Open + Non-deprecated + Authentic)
+- `OSP / Open`: Percentage of Open (i.e., public and not embargoed) preprints that meet the Open Science Preprint criteria
+- `OSP / Total`: Percentage of Total preprints that meet the Open Science Preprint criteria
+
+```{r}
+provider_gtbl
+```
+
+We can also plot these numbers over time for each provider.  Because of the disparity in the number of preprints between registries, we calculate the percentage of preprints that meeting Open Science Preprint criteria.  This are the `OSP / Open` and `OSP / Total` metrics from the previous table.
+
+```{r}
+# Prep
+provider_ptbl <- provider_tbl |>
+    select(Date, Provider, `OSP / Open`, `OSP / Total`) |>
+    pivot_longer(
+        cols = c(`OSP / Open`, `OSP / Total`),
+        names_to = "Metric", values_to = "Percentage") |>
+    ungroup()
+
+# First plot
+provider_ptbl |>
+    filter(Metric == "OSP / Open") |>
+    plot_time_series(Date, Percentage, .color_var = Provider,
+    .smooth = FALSE, .title = "Open Efficiency of OSF Preprints by Provider")
+```
+
+```{r}
+# Second plot
+provider_ptbl |>
+    filter(Metric == "OSP / Total") |>
+    plot_time_series(Date, Percentage, .color_var = Provider,
+    .smooth = FALSE, .title = "Total Efficiency of OSF Preprints by Provider")
 ```

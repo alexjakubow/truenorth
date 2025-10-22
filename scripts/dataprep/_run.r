@@ -24,3 +24,13 @@ source(file.path(PATH, "registration-badges.r"))
 # Analysis datasets
 source(file.path(PATH, "registration-ts.r")) # Monthly TS summaries + current status
 source(file.path(PATH, "registration-ttlos.r")) # Time-to-event dataset
+
+
+# PREPRINT-RESOURCES -----------------------------------------------------------
+# Core tables
+source(file.path(PATH, "preprint.r"))
+source(file.path(PATH, "preprint-log.r"))
+
+# Lifecycle events
+source(file.path(PATH, "preprint-events.r"))
+source(file.path(PATH, "preprint-resources.r"))

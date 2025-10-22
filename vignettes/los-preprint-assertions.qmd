@@ -6,11 +6,11 @@ output: html_document
 
 # Overview
 
-> **This method measures lifecycle open science on OSF by looking at preprint assertions.**
+This method measures lifecycle open science on OSF by looking at preprint assertions linked to open science preprints.
 
 ## Definitions
 
-> Open Science Preprint (OSP): An OSF Preprint that is jointly *open*, *non-deprecated*, and *authentic*
+> **OSP**Open Science Preprint (OSP): An OSF Preprint that is jointly *open*, *non-deprecated*, and *authentic*
 
 - Openness Criteria:
     1. Public (open-1)
@@ -23,16 +23,75 @@ output: html_document
 - Authenticity Criteria:
     1. Not Spam (authentic-1)
 
-> Lifecycle Open Science Preprint (LOS-Preprint): An OSP that represents a lifecycle open science research project.
+>  **LOS-Preprint**: An OSP that represents a lifecycle open science research project.
 
 - Lifecycle Open Criteria:
 
-    1. The OSP has at least 1 linked dataset
-    2. The OSP has at least 1 linked preregistration
+    1. **Plan**: The OSP has at least 1 linked preregistration
+    2. **Output**: The OSP has at least 1 linked dataset
+
 
 # Results
 
-# Today
+## Today
+Here is the current state of LOS research projects on the OSF as of `r max(all_ts$date)`.  For all of the summary tables below, the following fields are included:
+
+- `<GROUP_NAME>`: An optional grouping variable for seeing disaggregated results (e.g., by provider, institutional membership, etc.)
+- `OSP`: Number of Open Science Preprints (i.e., Open + Non-deprecated + Authentic)
+- `OSP + Plan`: Number of Open Science Preprints with at least one linked output resource
+- `OSP + Outcome(s)`: Number of Open Science Preprints with at least one linked outcome resource
+- `LOS-Preprint`: Lifecycle Open Science Preprints - number of Open Science Preprints with at least one linked outcome and at least one linked output resource
+- `LOS-Preprint / OSP`: Percentage of Open Science OSF Preprints (OSP) that are Lifecycle Open Science Preprints (LOS-Preprint)
+
+
+### Aggregate
+
+```{r}
+overall_tbl <- all_summary |>
+    filter(criteria %in% TABLE_CRITERIA) |>
+    pivot_wider(names_from = criteria, values_from = n) 
+names(overall_tbl) <-c("Date", TABLE_NAMES)
+
+overall_tbl <- overall_tbl |>
+    mutate(
+        `LOS-Preprint / OSP` = `LOS-Preprint` / `OSP`,
+    )
+
+today_gtbl <- overall_tbl |>
+    filter(Date == MOST_RECENT) |>
+    select(-Date) |>
+    table_helper("Lifecycle Open Science Preprints", use_pagination = FALSE, use_sorting = FALSE)
+
+today_gtbl
+```
+
+### By Provider
+
+```{r}
+provider_tbl <- provider_summary |>
+    filter(criteria %in% TABLE_CRITERIA) |>
+    pivot_wider(names_from = criteria, values_from = n) 
+names(provider_tbl) <-c("Date", "Provider", TABLE_NAMES)
+
+provider_tbl <- provider_tbl |>
+    mutate(
+        `LOS-Preprint / OSP` = `LOS-Preprint` / `OSP`,
+    )
+
+today_provider_tbl <- provider_tbl |>    
+    filter(Date == MOST_RECENT) |>
+    select(-Date) |>    
+    table_helper("Lifecycle Open Science Preprints by Provider", use_pagination = FALSE)
+
+today_provider_tbl
+```
+
+
+## Time to Lifecycle Open Science
+<!-- 
+# DEPRECATED
+
+## Today
 
 Here is the current state of LOS research projects on the OSF as of `r max(all_ts$date)`:
 
@@ -103,4 +162,4 @@ los_summary |>
     labs(y = "Efficiency", x = "Date") +
     theme(legend.position = "bottom", legend.title = element_blank())
 ```
-
+ -->

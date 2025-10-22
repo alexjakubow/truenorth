@@ -6,7 +6,7 @@ date-modified: last-modified
 
 # Overview
 
-This vignette measures lifecycle open science on OSF by looking at open science practices linked to open science registrations.
+This method measures lifecycle open science on OSF by looking at open science practices linked to open science registrations.
 
 ## Definitions
 
@@ -253,7 +253,7 @@ reg_tbl <- read_parquet(here::here("data/registration_current.parquet")) |>
     filter(is_osr == 1) |>
     select(node_id, registry, registered_date) 
 reg_events <- read_parquet(here::here("data/registration_badges_time.parquet")) |>
-    inner_join(reg_tbl, by = "node_id")
+    inner_join(reg_tbl, by = "node_id", relationship = "many-to-one")
 
 
 #' Time to event summarizer
@@ -325,7 +325,7 @@ The following table summarizes how long it takes for an OSR to become fully life
 2. The first linked outcome resource
 3. The achievement of lifecycle open status
 
-The "Prevalance" columns report the number and percentage of OSRs that have reached each milestone, while the "Distribution" columns provide summary statistics characterizing the center, spread, and range of time to each milestone.
+The "Prevalance" columns report the number and percentage of OSRs that have reached each milestone, while the "Distribution" columns provide summary statistics characterizing the center, spread, and range of time to each milestone (in days).
 
 ```{r}
 df_summary <- tte_summarizer(df_tte, t = time_to_event, x = event)
@@ -406,7 +406,9 @@ df_summary |>
     tab_spanner(columns = c(mean, p50, sd, min, max), label = "Distribution") |>
     # Value formatting
     fmt_number(columns = c(n, mean, p50, sd, min, max), decimals = 0) |>
-    fmt_percent(columns = p, decimals = 1) 
+    fmt_percent(columns = p, decimals = 1) |>
+    opt_interactive(use_search = FALSE, use_pagination = FALSE) |>
+    opt_horizontal_padding(0)
 ```
 
 ```{r}
@@ -470,123 +472,116 @@ tte_table(tbl = df_summary_registry, title = "Time to Lifecycle Open Status by R
 
 There are several potential insights related to the *sequencing* of resource connections.  The following table summarizes sequencing patterns for OSRs with at least two linked resources.  The rows correspond to resource types (code, data, materials, supplements, and papers), while the columns sequencing order.
 
-<!-- For instance, when looking within the "First" column, we see that Data is most frequently linked first (40%), followed by Supplements.  Moving across the table, Code tends to follow (54% of all second connections), and Papers tend to appear more commonly in the later connections (4th and 5th).  Supplements are most likely to be the last linked resource provided---at least among our sample of OSRs with at least two linked resources and in instances where users went through the effort of already linking four resources. -->
+For instance, when looking within the "First" column, we see that Data is most frequently linked first (41%), followed by Papers (31%).  
 
-IN PROGRESS....
 
 ```{r}
-# # Long form
-# df_sequence <- df_tte |>
-#     filter(event %in% c(tolower(OUTCOMES), tolower(OUTPUTS)))
-# # df_sequence <- reg_events |>
-# #     select(node_id, starts_with("date1_"), -date1_outcome, -date1_output) |>
-# #     pivot_longer(
-# #         cols = dplyr::matches("date1_"),
-# #         names_to = "resource",
-# #         names_prefix = "date1_",
-# #         values_to = "date"
-# #     ) |>
-# #     group_by(node_id) |>
-# #     arrange(date) |>
-# #     mutate(
-# #         sequence = row_number()
-# #     ) |>
-# #     ungroup()
+# Data
+df_summary <- df_tte |>
+    filter(event %in% c("code", "data", "materials", "supplements", "papers")) |> 
+    filter(!is.na(sequence)) |>
+    tte_summarizer(t = sequence, x = event, sequence) |>
+    mutate(
+        event = stringr::str_to_title(event)
+    ) |>
+    arrange(sequence, event) |>
+    select(event, sequence, n, p) |>
+    pivot_wider(
+        id_cols = event,
+        names_from = sequence,
+        values_from = c(n, p),
+        names_glue = "{.value}_{sequence}",
+        values_fill = 0
+    ) |>
+    select(event, n_1, p_1, n_2, p_2, n_3, p_3, n_4, p_4, n_5, p_5) |>
+    mutate(
+        event = stringr::str_to_title(event)
+    )
 
-# # x <- 
-
-# df_n <- df_sequence |>
-#     summarize(
-#         .by = sequence,
-#         N = n_distinct(node_id)
-#     ) |>
-#     cross_join(distinct(df_sequence, event))
-
-# df_summary <- df_sequence |>
-#     summarize(
-#         .by = c(sequence, event),
-#         n = sum(!is.na(time_to_event), na.rm = TRUE)
-#     ) |>
-#     left_join(df_n) |>
-#     mutate(
-#         p = n / N
-#     ) 
-
-# df_summary |>
-#     filter()
-#     select(-N)
-
-
-# x <- summarizer(df_sequence, x = as.numeric(date), id_cols = "node_id", group_cols = "sequence") |>
-#     select(event, sequence, n, p) |>
-#     arrange(sequence, event) |>
-#     group_by(sequence) |>
-#     mutate(
-#         p = n / sum(n, na.rm = TRUE)
-#     ) |>
-#     ungroup() |>
-#     pivot_wider(
-#         id_cols = event,
-#         names_from = sequence,
-#         values_from = c(n, p),
-#         names_glue = "{.value}_{sequence}"
-#     ) |>
-#     select(resource, n_1, p_1, n_2, p_2, n_3, p_3, n_4, p_4, n_5, p_5) |>
-#     mutate(
-#         resource = stringr::str_to_title(resource)
-#     )
-
-# # Table
-# x |>
-#     gt(rowname_col = "resource") |>
-#     tab_header(
-#         title = "Sequence of Connected Resources",
-#         subtitle = paste0("Among all Open Science Registrations (OSR) [n = ", format(n_distinct(df_sequence$node_id), big.mark = ","), "]")) |>
-#     cols_label(
-#         starts_with("n_") ~ "Count",
-#         starts_with("p_") ~ "Percent"
-#     ) |>
-#     # Spanners
-#     tab_spanner(
-#         columns = ends_with("1"),
-#         label = md(glue("**First**<br>(n={comma(sum(x$n_1))})"))) |>
-#     tab_spanner(
-#         columns = ends_with("2"),
-#         label = md(glue("**Second**<br>(n={comma(sum(x$n_2))})"))) |>
-#     tab_spanner(
-#         columns = ends_with("3"),
-#         label = md(glue("**Third**<br>(n={comma(sum(x$n_3))})"))) |>
-#     tab_spanner(
-#         columns = ends_with("4"),
-#         label = md(glue("**Fourth**<br>(n={comma(sum(x$n_4))})"))) |>
-#     tab_spanner(
-#         columns = ends_with("5"),
-#         label = md(glue("**Fifth**<br>(n={comma(sum(x$n_5))})"))) |>
-#     # Row groups
-#     tab_row_group(
-#         label = "Outputs",
-#         rows = OUTPUTS) |>
-#     tab_row_group(
-#         label = "Outcomes",
-#         rows = OUTCOMES
-#     ) |>
-#     tab_stub_indent(rows = c(OUTPUTS, OUTCOMES), indent = 3) |>
-#     tab_options(
-#         row_group.background.color = "gray95"
-#     ) |>
-#     row_group_order(
-#         groups = c("Outputs", "Outcomes")
-#     ) |>
-#     # Value formatting
-#     fmt_number(columns = starts_with("n_"), decimals = 0) |>
-#     fmt_percent(columns = starts_with("p_"), decimals = 1) |>
-#     opt_interactive()
+# Table
+df_summary |>
+    gt(rowname_col = "event") |>
+    tab_header(
+        title = "Sequence of Connected Resources",
+        subtitle = paste0("Among all Open Science Registrations (OSR) [n = ", format(n_distinct(df_sequence$node_id), big.mark = ","), "]")) |>
+    cols_label(
+        starts_with("n_") ~ "Count",
+        starts_with("p_") ~ "Percent"
+    ) |>
+    # Spanners
+    tab_spanner(
+        columns = ends_with("1"),
+        label = md(glue("**First**<br>(n={comma(sum(df_summary$n_1))})"))) |>
+    tab_spanner(
+        columns = ends_with("2"),
+        label = md(glue("**Second**<br>(n={comma(sum(df_summary$n_2))})"))) |>
+    tab_spanner(
+        columns = ends_with("3"),
+        label = md(glue("**Third**<br>(n={comma(sum(df_summary$n_3))})"))) |>
+    tab_spanner(
+        columns = ends_with("4"),
+        label = md(glue("**Fourth**<br>(n={comma(sum(df_summary$n_4))})"))) |>
+    tab_spanner(
+        columns = ends_with("5"),
+        label = md(glue("**Fifth**<br>(n={comma(sum(df_summary$n_5))})"))) |>
+    # Row groups
+    tab_row_group(
+        label = "Outputs",
+        rows = OUTPUTS) |>
+    tab_row_group(
+        label = "Outcomes",
+        rows = OUTCOMES
+    ) |>
+    tab_stub_indent(rows = c(OUTPUTS, OUTCOMES), indent = 3) |>
+    tab_options(
+        row_group.background.color = "gray95"
+    ) |>
+    row_group_order(
+        groups = c("Outputs", "Outcomes")
+    ) |>
+    # Value formatting
+    fmt_number(columns = starts_with("n_"), decimals = 0) |>
+    fmt_percent(columns = starts_with("p_"), decimals = 1) |>
+    opt_interactive()
 ```
 
 
-### Resource Latency
+### Resource Sequencing and Latency
 
-A third potential line of inquiry searches for patterns in the *latency*--or elapsed-time--between resource connections within the same OSR.  These sorts of questions are obviously limited to OSRs with at least two connected resources, which we could subdivide further into two different sets of analyses:
+A third potential line of inquiry explores how/whether sequence order relates to overall latency times for resource connections of different types. Due to the limited number of OSRs with all five or at least four linked resources of *any* type, the following table summarizes latency times by resource type and sequence order.
+
+*IN PROGRESS*
+
+```{r}
+# Recompute time to event based on distance to last event
+# df_summary <- df_tte |>
+#     filter(event %in% c("code", "data", "materials", "supplements", "papers")) |> 
+#     filter(!is.na(sequence) & sequence < 4) |>
+#     group_by(node_id, event) |>
+#     arrange(sequence) |>
+#     mutate(
+#         benchmark_date = ifelse(sequence == 1, registered_date, date),
+#         time_to_event = as.numeric(date - benchmark_date, units = "days")
+#     ) |>
+#     ungroup()
+#     tte_summarizer(x = event, t = time_to_event, event, sequence) |>
+#     distinct(event, sequence, mean, p50, sd, min, max, .keep_all = TRUE) |>
+#     select(-p) |>
+#     arrange(event, sequence) |>
+#     group_by(event) |>
+#     mutate(
+#         median_diff = if_else(
+#             sequence == 1, p50,
+#             p50 - lag(p50)),
+#         mean_diff = mean - lag(mean)
+#     )
+# df_summary
+```
+
+
+
+<!-- 
+These sorts of questions are obviously limited to OSRs with at least two connected resources, which we could subdivide further into two different sets of analyses:
 
 - *Inter*-resource latency - Questions of interest rooted in the amount of time between connected resources of *different types* (e.g., Linking a dataset and the code that produced it)
 - *Intra*-resource latency - Questions of interest rooted in the amount of time between connected resources of the *same type* (e.g., Linking multiple datasets)
@@ -595,28 +590,7 @@ A third potential line of inquiry searches for patterns in the *latency*--or ela
 
 IN PROGRESS...
 
-```{r}
-# # Long form
-# df_latency <- reg_events |>
-#     select(node_id, starts_with("date1_"), -date1_outcome, -date1_output) |>
-#     pivot_longer(
-#         cols = dplyr::matches("date1_"),
-#         names_to = "resource",
-#         names_prefix = "date1_",
-#         values_to = "date",
-#         values_drop_na = TRUE
-#     ) |>
-#     group_by(node_id) |>
-#     arrange(date) |>
-#     mutate(
-#         sequence = row_number(),
-#         latency = as.numeric(date - lag(date), units = "days")
-#     ) |>
-#     filter(sequence > 1) |>
-#     ungroup()
-
-# df_summary <- summarizer(df_latency, x = latency, id_cols = "node_id", group_cols = "sequence")
-```
+-->
 
 ## Time Series
 
@@ -650,6 +624,10 @@ registry_ptbl |>
 ```
 
 # CHANGELOG
+
+- 2025-10-22
+    - Revisions to time-to-event analyses
+    - Preprints-forward recipe pending
 
 - 2025-10-17
     - Initial time-to-event analyses

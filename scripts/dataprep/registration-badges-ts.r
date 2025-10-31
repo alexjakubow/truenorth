@@ -32,7 +32,7 @@ badges_count_monthly <- function(dates) {
 
 
 # MAIN ----------------------------------------------------------------------
-reg_badges <- open_dataset(PATH_REG_BDG) |>
+reg_badges <- open_dataset(PATHIN) |>
   to_duckdb()
 reg_badges_monthly <- badges_count_monthly(DATES)
 write_parquet(reg_badges_monthly, PATHOUT)

@@ -10,7 +10,7 @@ This method measures lifecycle open science on OSF by looking at open science pr
 
 ## Definitions
 
-> **OSR**: An OSF Registration that is jointly *open*, *non-deprecated* and *authentic*
+> **Open Science Registration (OSR)**: An OSF Registration that is jointly *open*, *non-deprecated* and *authentic*
 
 - Openness Criteria:
     1. Public (open-1)

@@ -41,15 +41,7 @@ factorizer <- function(tbl, col, coarseness = c(1, 2, 3), ...) {
       dplyr::mutate(
         {{ col }} := factor(
           {{ col }},
-          levels = c(
-            "total",
-            "public",
-            "not_embargoed",
-            "registered",
-            "not_deleted",
-            "not_retracted",
-            "not_spam"
-          )
+          levels = LVLS
         )
       )
   }
@@ -122,6 +114,103 @@ factorizer <- function(tbl, col, coarseness = c(1, 2, 3), ...) {
   return(dplyr::ungroup(tbl_out))
 }
 
+
+#' Factorize object states for plotting preprints
+#'
+#' @param tbl Table to factorize
+#' @param col Column to (re)factor
+#' @param coarseness Coarsening level. 1 = most detailed, 2 = criteria-level, 3 = multiple-criteria-level. Defaults to 1.
+#' @export
+ppt_factorizer <- function(tbl, col, coarseness = c(1, 2, 3), ...) {
+  # Most detailed
+  if (coarseness[1] == 1) {
+    LVLS <- c(
+      "total",
+      "public",
+      "accepted",
+      "published",
+      "not_deleted",
+      "not_withdrawn",
+      "not_spam"
+    )
+    tbl_out <- tbl |>
+      dplyr::filter({{ col }} %in% LVLS) |>
+      dplyr::group_by(...) |>
+      dplyr::mutate(
+        {{ col }} := factor(
+          {{ col }},
+          levels = LVLS
+        )
+      )
+  }
+
+  # Coarsening
+  if (coarseness[1] > 1) {
+    LVLS <- c(
+      "total",
+      "open",
+      "not_deprecated",
+      "authentic",
+      "open_notdep",
+      "open_auth",
+      "notdep_auth",
+      "los_outcome"
+    )
+    tbl_out <- tbl |>
+      dplyr::filter({{ col }} %in% LVLS) |>
+      dplyr::group_by(...) |>
+      dplyr::mutate(
+        {{ col }} := dplyr::case_when(
+          {{ col }} == "total" ~ "Total",
+          {{ col }} == "open" ~ "Open",
+          {{ col }} == "not_deprecated" ~ "Non-deprecated",
+          {{ col }} == "authentic" ~ "Authentic",
+          {{ col }} == "open_notdep" ~ "Open + Non-deprecated",
+          {{ col }} == "open_auth" ~ "Open + Authentic",
+          {{ col }} == "notdep_auth" ~ "Non-deprecated + Authentic",
+          {{ col }} == "los_outcome" ~ "Open Science Preprint",
+          .default = NA
+        )
+      )
+
+    # Level-2 coarsening
+    if (coarseness[1] == 2) {
+      tbl_out <- tbl_out |>
+        dplyr::mutate(
+          {{ col }} := factor(
+            {{ col }},
+            levels = c(
+              "Total",
+              "Open",
+              "Non-deprecated",
+              "Authentic",
+              "Open + Non-deprecated",
+              "Open + Authentic",
+              "Non-deprecated + Authentic",
+              "Open Science Preprint"
+            )
+          )
+        )
+    }
+
+    # Level-3 coarsening
+    if (coarseness[1] == 3) {
+      LVS <- c(
+        "Total",
+        "Open + Non-deprecated",
+        "Open + Authentic",
+        "Open Science Preprint"
+      )
+      tbl_out <- tbl_out |>
+        dplyr::filter({{ col }} %in% LVS) |>
+        dplyr::mutate(
+          {{ col }} := factor({{ col }}, levels = LVS)
+        )
+    }
+  }
+
+  return(dplyr::ungroup(tbl_out))
+}
 
 #' Prepare data for time series plots
 #'

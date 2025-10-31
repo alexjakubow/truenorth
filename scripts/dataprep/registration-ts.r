@@ -31,8 +31,8 @@ box::use(
     database[
       last_logged_action,
       reg_badge_status,
-      reg_recipe_status_typed,
-      reg_recipe_status_summed
+      reg_recipe_status_summed,
+      reg_recipe_status_typed
     ],
   R / helpers[tidyup],
   R / parameters[DATES],

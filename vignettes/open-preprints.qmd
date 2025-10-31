@@ -8,7 +8,7 @@ date-modified: last-modified
 
 This vignette examines candidacy criteria for open science among OSF Preprints.
 
-Candidate preprints meet standards for and *openness*, *non-deprecation*, *authenticity*.  Specifically, an open-science registraiton must be:
+Candidate preprints meet standards for and *openness*, *non-deprecation*, *authenticity*.  Specifically, an open-science preprint must be:
 
 
 **Open**
@@ -17,9 +17,10 @@ Candidate preprints meet standards for and *openness*, *non-deprecation*, *authe
 
 **Non-deprecated**
 
-2. Published (nondeprecated-1)
-3. Not deleted (nondeprecated-2)
-4. Not withdrawn (nondeprecated-3)
+1. Accepted (nondeprecated-1)
+2. Published (nondeprecated-2)
+3. Not deleted (nondeprecated-3)
+4. Not withdrawn (nondeprecated-4)
 
 **Authentic**
 
@@ -39,8 +40,9 @@ From the `osf_preprint` table, we already know when the following actions occure
 To get at *when* a preprint becomes: 
 
 - public, we need to look for the `made_public` and `made_private` action types in the `osf_preprintlog` table.  
+- spam, we look for the actions of type `confirm_spam` in the `osf_preprintlog` table.
 
-If a preprint has no visibility actions in the log table but appears as public in the `osf_preprint` table, we assume the preprint was made public at the time of creation (`created`)
+For every criteria of interest (i.e. public, accepted, published, non-deleted, non-withdrawn, non-spam), if we cannot find a corresponding action in the `osf_preprintlog` table, we will assume that the criteria is met at the time of creation (`created`).
 
 ## Implementation
 
@@ -60,8 +62,8 @@ library(gt)
 # Modules
 box::use(
     R / connect[open_parquet],
-    R / helpers[tidy_provider_names] 
-    R / plot[pivoter, factorizer, ts_prep],
+    R / helpers[tidy_provider_names],
+    R / plot[pivoter, ppt_factorizer, ts_prep],
 )
 
 # Sources
@@ -81,7 +83,7 @@ MOST_RECENT <- ymd(MOST_RECENT_CHR)
 TABLE_CRITERIA <- c(
     "total", "open", "not_deprecated", "authentic",
     "open_notdep", "open_auth", "notdep_auth",
-    "los_outcomes")
+    "los_outcome")
 TABLE_NAMES <- c(
     "Total", "Open", "Non-deprecated", "Authentic",
     "Open + Non-deprecated", "Open + Authentic", "Non-deprecated + Authentic",
@@ -97,11 +99,11 @@ TABLE_NAMES <- c(
 
 The following plots show the distribution of preprints along multiple (sub)criteria of interest.  The total number of preprints (i.e., all preprints in the database wihthout *any* filtering) is shown in black.
 
-The following graph plots the distribution of preprints along the five different sub-criteria of interest denoted at the beginning.  Preprints can be duplicated across criteria.  The total number of preprints is shown in black.
+The following graph plots the distribution of preprints along all distinct sub-criteria of interest denoted at the beginning.  Preprints can be duplicated across criteria.  The total number of preprints is shown in black.
 
 ```{r}
 all_summary |>
-    factorizer(criteria) |>
+    ppt_factorizer(criteria) |>
     plot_time_series(date, n, .color_var = criteria, .smooth = FALSE,
     .title = "OSF Preprints by Open Science Subcriteria")
 ```
@@ -110,7 +112,7 @@ The next figure plots the distribution of preprints according to the three main 
 
 ```{r}
 all_summary |>
-    factorizer(criteria, 2) |>
+    ppt_factorizer(criteria, 2) |>
     plot_time_series(date, n, .color_var = criteria, .smooth = FALSE,
     .title = "OSF Preprints by Open Science Criteria")
 
@@ -120,7 +122,7 @@ The next graph is just a simplified version of the previous one, where we only s
 
 ```{r}
 all_summary |> 
-    factorizer(criteria, 3) |>
+    ppt_factorizer(criteria, 3) |>
     plot_time_series(date, n, .color_var = criteria, .smooth = FALSE,
     .title = "OSF Preprints with 2+ Open Science Criteria")
 ```

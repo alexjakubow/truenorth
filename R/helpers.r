@@ -161,3 +161,19 @@ tidy_table <- function(tbl, ...) {
     ) |>
     dplyr::ungroup()
 }
+
+
+# PREPRINT HELPERS -------------------------------------------------------------
+#' Tidy up provider names
+#' @export
+tidy_provider_names <- function(x) {
+  gsub(
+    "Preprint|Preprints",
+    "",
+    gsub(
+      "\\s+$",
+      "",
+      gsub("egap", "EGAP", x)
+    )
+  )
+}

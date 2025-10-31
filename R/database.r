@@ -2,7 +2,7 @@ box::use(
   R / criteria[CRITERIA_OSR]
 )
 
-
+# DATABASE QUERIES -------------------------------------------------------------
 #' Last logged action query
 #'
 #' @param tbl Database table connection to query (duckdb)
@@ -41,6 +41,7 @@ first_logged_action <- function(tbl, date_col, status_col, date, ...) {
 }
 
 
+# REGISTRATION QUERIES ---------------------------------------------------------
 #' Filters the registration_badges table for finalized artifacts that were:
 #' 1. Created on/before the specified date
 #' 2. Not deleted or deleted after the specified date.
@@ -70,6 +71,30 @@ reg_badge_status <- function(tbl, date, ...) {
     )
 }
 
+#' Filters the preprint_resources table for linked resources that were:
+#' 1. Created on/before the specified date (set as "available")
+#'
+#' And then counts the number of artifacts by type and optional grouping variables.
+#'
+#' @param tbl Preprint resourcs table
+#' @param date Query date
+#' @param ... Column names to group by
+#'
+#' @export
+ppt_resource_status <- function(tbl, date, ...) {
+  tbl |>
+    dplyr::filter(
+      created <= date
+    ) |>
+    dplyr::summarise(
+      .by = c(...),
+      n_resources = n(),
+      n_prereg = sum(resource_type == "prereg", na.rm = TRUE),
+      n_data = sum(resource_type == "data", na.rm = TRUE)
+    )
+}
+
+
 #' Calculate the number of linked outcomes and outputs for each registraiton by summing on `artifact_type`
 #' @export
 reg_recipe_status_typed <- function(tbl) {
@@ -97,5 +122,30 @@ reg_recipe_status_summed <- function(tbl) {
         na.rm = TRUE
       ),
       n_outcomes = sum(n_papers, na.rm = TRUE)
+    )
+}
+
+
+# OSF PREPRINTS ----------------------------------------------------------------
+#' Calculate the number of linked outcomes and outputs for each registraiton by summing on `resource_type`
+#' @export
+ppt_recipe_status_typed <- function(tbl) {
+  tbl |>
+    dplyr::summarise(
+      .by = preprint_id,
+      n_plans = sum(resource_type == "prereg", na.rm = TRUE),
+      n_outputs = sum(resource_type == "data", na.rm = TRUE),
+    )
+}
+
+
+#' Calculate the number of linked outcomes and outputs for each preprint by summing across computed counts for each resource type (i.e., data or prereg)
+#' @export
+ppt_recipe_status_summed <- function(tbl) {
+  tbl |>
+    dplyr::summarise(
+      .by = preprint_id,
+      n_plans = sum(n_prereg, na.rm = TRUE),
+      n_outputs = sum(n_data, na.rm = TRUE)
     )
 }

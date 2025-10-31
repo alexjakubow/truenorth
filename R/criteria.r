@@ -18,3 +18,14 @@ CRITERIA_OSR <- rlang::exprs(
   # legacy/deprecated criteria
   "open_strict" = visibility == "public" & embargo == "unembargoed"
 )
+
+#' Open Science Preprints
+#' @export
+CRITERIA_OSP <- rlang::exprs(
+  "open" = visibility == "public",
+  "nondeprecated" = machine_state == "accepted" &
+    !is.na(date_published) &
+    is.na(date_withdrawn) &
+    is.na(deleted),
+  "authentic" = spam == "non-spam"
+)

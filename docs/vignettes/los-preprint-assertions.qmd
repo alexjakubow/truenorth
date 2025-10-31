@@ -10,7 +10,7 @@ This method measures lifecycle open science on OSF by looking at preprint assert
 
 ## Definitions
 
-> **Open Science Preprint (OSP)**: An OSF Preprint that is jointly *open*, *non-deprecated*, and *authentic*
+> **OSP**Open Science Preprint (OSP): An OSF Preprint that is jointly *open*, *non-deprecated*, and *authentic*
 
 - Openness Criteria:
     1. Public (open-1)
@@ -196,10 +196,8 @@ provider_tbl <- provider_tbl |>
         `LOS-Preprint / OSP` = `LOS-Preprint` / `OSP`,
     )
 
-today_provider_tbl <- provider_tbl |> 
-    ungroup() |>
+today_provider_tbl <- provider_tbl |>    
     filter(Date == MOST_RECENT) |>
-    arrange(desc(`LOS-Preprint`)) |>
     select(-Date) |>    
     table_helper("Lifecycle Open Science Preprints by Provider", use_pagination = FALSE)
 

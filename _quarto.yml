@@ -4,8 +4,6 @@ project:
   render:
   - "*.qmd"
   - "!dev/*.qmd"
-  - "!vignettes/los-preprint-assertions.qmd"
-  - "!vignettes/open-preprints.qmd"
   - "!about.qmd"
 
 website:
@@ -33,6 +31,8 @@ website:
     contents:
       - href: "vignettes/open-registrations.qmd"
         text: "Open Registrations"
+      - href: "vignettes/open-preprints.qmd"
+        text: "Open Preprints"
   - id: projects
     title: "Projects (*recipes*)"
     style: floating
@@ -41,6 +41,8 @@ website:
     contents:
       - href: "vignettes/los-registration-badges.qmd"
         text: "Registration Badges"
+      - href: "vignettes/los-preprint-assertions.qmd"
+        text: "Preprint Assertions"
 format:
   html:
     code-fold: true

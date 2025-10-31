@@ -68,7 +68,7 @@
     "href": "vignettes/los-registration-badges.html",
     "title": "OSF Registration Badges",
     "section": "",
-    "text": "This method measures lifecycle open science on OSF by looking at open science practices linked to open science registrations.\n\n\n\nOSR: An OSF Registration that is jointly open, non-deprecated and authentic\n\n\nOpenness Criteria:\n\nPublic (open-1)\nNot Embargoed (open-2)\n\nNon-Deprecation Criteria:\n\nRegistered (nondeprecated-1)\nNot Deleted (nondeprecated-2)\nNot Retracted (nondeprecated-3)\n\nAuthenticity Criteria:\n\nNot Spam (authentic-1)\n\n\n\nLOS-Reg: An OSR that represents a lifecycle open science research project.\n\n\nLifecycle Opennness Criteria:\n\nOutput - The OSR has at least 1 linked Open Practice Resource from among: “Data”, “Analytic Code”, “Materials” or “Supplements”.\n\nOutcome - The OSR has at least 1 linked “Papers” Open Practice Resource.",
+    "text": "This method measures lifecycle open science on OSF by looking at open science practices linked to open science registrations.\n\n\n\nOpen Science Registration (OSR): An OSF Registration that is jointly open, non-deprecated and authentic\n\n\nOpenness Criteria:\n\nPublic (open-1)\nNot Embargoed (open-2)\n\nNon-Deprecation Criteria:\n\nRegistered (nondeprecated-1)\nNot Deleted (nondeprecated-2)\nNot Retracted (nondeprecated-3)\n\nAuthenticity Criteria:\n\nNot Spam (authentic-1)\n\n\n\nLOS-Reg: An OSR that represents a lifecycle open science research project.\n\n\nLifecycle Opennness Criteria:\n\nOutput - The OSR has at least 1 linked Open Practice Resource from among: “Data”, “Analytic Code”, “Materials” or “Supplements”.\n\nOutcome - The OSR has at least 1 linked “Papers” Open Practice Resource.",
     "crumbs": [
       "Registration Badges"
     ]
@@ -78,7 +78,7 @@
     "href": "vignettes/los-registration-badges.html#definitions",
     "title": "OSF Registration Badges",
     "section": "",
-    "text": "OSR: An OSF Registration that is jointly open, non-deprecated and authentic\n\n\nOpenness Criteria:\n\nPublic (open-1)\nNot Embargoed (open-2)\n\nNon-Deprecation Criteria:\n\nRegistered (nondeprecated-1)\nNot Deleted (nondeprecated-2)\nNot Retracted (nondeprecated-3)\n\nAuthenticity Criteria:\n\nNot Spam (authentic-1)\n\n\n\nLOS-Reg: An OSR that represents a lifecycle open science research project.\n\n\nLifecycle Opennness Criteria:\n\nOutput - The OSR has at least 1 linked Open Practice Resource from among: “Data”, “Analytic Code”, “Materials” or “Supplements”.\n\nOutcome - The OSR has at least 1 linked “Papers” Open Practice Resource.",
+    "text": "Open Science Registration (OSR): An OSF Registration that is jointly open, non-deprecated and authentic\n\n\nOpenness Criteria:\n\nPublic (open-1)\nNot Embargoed (open-2)\n\nNon-Deprecation Criteria:\n\nRegistered (nondeprecated-1)\nNot Deleted (nondeprecated-2)\nNot Retracted (nondeprecated-3)\n\nAuthenticity Criteria:\n\nNot Spam (authentic-1)\n\n\n\nLOS-Reg: An OSR that represents a lifecycle open science research project.\n\n\nLifecycle Opennness Criteria:\n\nOutput - The OSR has at least 1 linked Open Practice Resource from among: “Data”, “Analytic Code”, “Materials” or “Supplements”.\n\nOutcome - The OSR has at least 1 linked “Papers” Open Practice Resource.",
     "crumbs": [
       "Registration Badges"
     ]
@@ -111,6 +111,96 @@
     "text": "Time Series\nWe can also examine the efficiency of Lifecycle Open Science Registrations over time. By efficiency, we mean the ratio of Lifecycle Open Science Registrations to Open Science Registrations. In other words, the percentage of Open Science Registrations that meet criteria for Lifecycle Open Science.\n\n\nSee the code\noverall_tbl |&gt;\n    select(Date, `LOS-Reg / OSR`) |&gt;\n    pivot_longer(\n        cols = c(`LOS-Reg / OSR`),\n        names_to = \"Metric\", values_to = \"Percentage\") |&gt;\n    plot_time_series(Date, Percentage, .smooth = FALSE, .title = \"Efficiency of Lifecycle Open Science Registrations\")\n\n\n\n\n\n\nWe can also plot these percentages over time for each registry. Because of the disparity in the number of registrations between registries, we calculate the percentage of registrations that meeting Open Science Registration criteria. This is the LOS-Reg / OSR netric from the previous table.\n\n\nSee the code\nregistry_ptbl &lt;- registry_tbl |&gt;\n    select(Date, Registry, `LOS-Reg / OSR`) |&gt;\n    pivot_longer(\n        cols = c(`LOS-Reg / OSR`),\n        names_to = \"Metric\", values_to = \"Percentage\") |&gt;\n    ungroup()\n\nregistry_ptbl |&gt;\n    filter(Metric == \"LOS-Reg / OSR\") |&gt;\n    plot_time_series(Date, Percentage, .color_var = Registry,\n    .smooth = FALSE, .title = \"Efficiency of Lifecycle Open Science Registrations by Registry\")",
     "crumbs": [
       "Registration Badges"
+    ]
+  },
+  {
+    "objectID": "vignettes/open-preprints.html",
+    "href": "vignettes/open-preprints.html",
+    "title": "Open Science Preprints on OSF",
+    "section": "",
+    "text": "This vignette examines candidacy criteria for open science among OSF Preprints.\nCandidate preprints meet standards for and openness, non-deprecation, authenticity. Specifically, an open-science preprint must be:\nOpen\n\nPublic (open-1)\n\nNon-deprecated\n\nAccepted (nondeprecated-1)\nPublished (nondeprecated-2)\nNot deleted (nondeprecated-3)\nNot withdrawn (nondeprecated-4)\n\nAuthentic\n\nNot spam (authentic-1)\n\n\n\nWe can use the date variables in the osf_preprint table and related actions in the osf_preprintlog table to generate a time series dataset of OSF Preprints.\nFrom the osf_preprint table, we already know when the following actions occured:\n\ncreated\ndate_published\ndate_withdrawn\ndeleted\n\nTo get at when a preprint becomes:\n\npublic, we need to look for the made_public and made_private action types in the osf_preprintlog table.\n\nspam, we look for the actions of type confirm_spam in the osf_preprintlog table.\n\nFor every criteria of interest (i.e. public, accepted, published, non-deleted, non-withdrawn, non-spam), if we cannot find a corresponding action in the osf_preprintlog table, we will assume that the criteria is met at the time of creation (created).\n\n\n\nSee preprints.r and preprints-ts.r for the bulk of the implementation details. For now, we just load the datasets we need.\n\n\nSee the code\n# Packages\nlibrary(arrow)\nlibrary(dplyr)\nlibrary(lubridate)\nlibrary(tidyr)\nlibrary(purrr)\nlibrary(rlang)\nlibrary(timetk)\nlibrary(gt)\n\n# Modules\nbox::use(\n    R / connect[open_parquet],\n    R / helpers[tidy_provider_names],\n    R / plot[pivoter, ppt_factorizer, ts_prep],\n)\n\n# Sources\nall_ts &lt;- read_parquet(here::here(\"data/preprint_tsmonthly.parquet\"))\nprovider_ts &lt;- read_parquet(here::here(\"data/preprint_providers_tsmonthly.parquet\")) |&gt;\n    mutate(provider = tidy_provider_names(provider))\n\n# Pivot for plots and assign labels\nall_summary &lt;- pivoter(all_ts) |&gt;\n    ts_prep()\nprovider_summary &lt;- pivoter(provider_ts, provider) |&gt;\n    ts_prep()\n\n# Constants\nMOST_RECENT_CHR &lt;- max(all_ts$date)\nMOST_RECENT &lt;- ymd(MOST_RECENT_CHR)\nTABLE_CRITERIA &lt;- c(\n    \"total\", \"open\", \"not_deprecated\", \"authentic\",\n    \"open_notdep\", \"open_auth\", \"notdep_auth\",\n    \"los_outcome\")\nTABLE_NAMES &lt;- c(\n    \"Total\", \"Open\", \"Non-deprecated\", \"Authentic\",\n    \"Open + Non-deprecated\", \"Open + Authentic\", \"Non-deprecated + Authentic\",\n    \"Open Science Preprint\")",
+    "crumbs": [
+      "Open Preprints"
+    ]
+  },
+  {
+    "objectID": "vignettes/open-preprints.html#operationalization",
+    "href": "vignettes/open-preprints.html#operationalization",
+    "title": "Open Science Preprints on OSF",
+    "section": "",
+    "text": "We can use the date variables in the osf_preprint table and related actions in the osf_preprintlog table to generate a time series dataset of OSF Preprints.\nFrom the osf_preprint table, we already know when the following actions occured:\n\ncreated\ndate_published\ndate_withdrawn\ndeleted\n\nTo get at when a preprint becomes:\n\npublic, we need to look for the made_public and made_private action types in the osf_preprintlog table.\n\nspam, we look for the actions of type confirm_spam in the osf_preprintlog table.\n\nFor every criteria of interest (i.e. public, accepted, published, non-deleted, non-withdrawn, non-spam), if we cannot find a corresponding action in the osf_preprintlog table, we will assume that the criteria is met at the time of creation (created).",
+    "crumbs": [
+      "Open Preprints"
+    ]
+  },
+  {
+    "objectID": "vignettes/open-preprints.html#implementation",
+    "href": "vignettes/open-preprints.html#implementation",
+    "title": "Open Science Preprints on OSF",
+    "section": "",
+    "text": "See preprints.r and preprints-ts.r for the bulk of the implementation details. For now, we just load the datasets we need.\n\n\nSee the code\n# Packages\nlibrary(arrow)\nlibrary(dplyr)\nlibrary(lubridate)\nlibrary(tidyr)\nlibrary(purrr)\nlibrary(rlang)\nlibrary(timetk)\nlibrary(gt)\n\n# Modules\nbox::use(\n    R / connect[open_parquet],\n    R / helpers[tidy_provider_names],\n    R / plot[pivoter, ppt_factorizer, ts_prep],\n)\n\n# Sources\nall_ts &lt;- read_parquet(here::here(\"data/preprint_tsmonthly.parquet\"))\nprovider_ts &lt;- read_parquet(here::here(\"data/preprint_providers_tsmonthly.parquet\")) |&gt;\n    mutate(provider = tidy_provider_names(provider))\n\n# Pivot for plots and assign labels\nall_summary &lt;- pivoter(all_ts) |&gt;\n    ts_prep()\nprovider_summary &lt;- pivoter(provider_ts, provider) |&gt;\n    ts_prep()\n\n# Constants\nMOST_RECENT_CHR &lt;- max(all_ts$date)\nMOST_RECENT &lt;- ymd(MOST_RECENT_CHR)\nTABLE_CRITERIA &lt;- c(\n    \"total\", \"open\", \"not_deprecated\", \"authentic\",\n    \"open_notdep\", \"open_auth\", \"notdep_auth\",\n    \"los_outcome\")\nTABLE_NAMES &lt;- c(\n    \"Total\", \"Open\", \"Non-deprecated\", \"Authentic\",\n    \"Open + Non-deprecated\", \"Open + Authentic\", \"Non-deprecated + Authentic\",\n    \"Open Science Preprint\")",
+    "crumbs": [
+      "Open Preprints"
+    ]
+  },
+  {
+    "objectID": "vignettes/open-preprints.html#all-preprints",
+    "href": "vignettes/open-preprints.html#all-preprints",
+    "title": "Open Science Preprints on OSF",
+    "section": "All Preprints",
+    "text": "All Preprints\n\nNOTE: All graphs are interactive. Click on the legend to toggle series on/off. You can also use the slider to scroll through the timerange. Zooming is also supported.\n\nThe following plots show the distribution of preprints along multiple (sub)criteria of interest. The total number of preprints (i.e., all preprints in the database wihthout any filtering) is shown in black.\nThe following graph plots the distribution of preprints along all distinct sub-criteria of interest denoted at the beginning. Preprints can be duplicated across criteria. The total number of preprints is shown in black.\n\n\nSee the code\nall_summary |&gt;\n    ppt_factorizer(criteria) |&gt;\n    plot_time_series(date, n, .color_var = criteria, .smooth = FALSE,\n    .title = \"OSF Preprints by Open Science Subcriteria\")\n\n\n\n\n\n\nThe next figure plots the distribution of preprints according to the three main criteria of interest (i.e., Open, Non-deprecated, Authentic). Plus signs (+) indicate preprints that jointly satisfy 2 or more criteria. The “Open Science Preprint” line plots the number of preprints meeting all 3 criteria.\n\n\nSee the code\nall_summary |&gt;\n    ppt_factorizer(criteria, 2) |&gt;\n    plot_time_series(date, n, .color_var = criteria, .smooth = FALSE,\n    .title = \"OSF Preprints by Open Science Criteria\")\n\n\n\n\n\n\nThe next graph is just a simplified version of the previous one, where we only show preprints that jointly satisfy 2 or more criteria. The “Total” line is included for reference.\n\n\nSee the code\nall_summary |&gt; \n    ppt_factorizer(criteria, 3) |&gt;\n    plot_time_series(date, n, .color_var = criteria, .smooth = FALSE,\n    .title = \"OSF Preprints with 2+ Open Science Criteria\")",
+    "crumbs": [
+      "Open Preprints"
+    ]
+  },
+  {
+    "objectID": "vignettes/open-preprints.html#summary-by-provider",
+    "href": "vignettes/open-preprints.html#summary-by-provider",
+    "title": "Open Science Preprints on OSF",
+    "section": "Summary by Provider",
+    "text": "Summary by Provider\n\n\nSee the code\nprovider_tbl &lt;- provider_summary |&gt;\n    filter(criteria %in% TABLE_CRITERIA) |&gt;\n    pivot_wider(id_cols = c(date, provider), names_from = criteria, values_from = n)\ncolnames(provider_tbl) &lt;- c(\"Date\", \"Provider\", TABLE_NAMES)\n\nprovider_tbl &lt;- provider_tbl |&gt;\n    select(Date, Provider, Total, starts_with(\"Open\")) |&gt;\n    mutate(\n        `OSP / Open` = `Open Science Preprint` / Open,\n        `OSP / Total` = `Open Science Preprint` / Total)\n\nprovider_gtbl &lt;- provider_tbl |&gt;\n    ungroup() |&gt;\n    filter(Date == MOST_RECENT) |&gt;\n    arrange(desc(`Open Science Preprint`)) |&gt;\n    select(-Date) |&gt;\n    gt() |&gt;\n    tab_header(\n        title = \"Open Science Preprints by Provider\",\n        subtitle = paste0(\"as of \", MOST_RECENT_CHR)) |&gt;\n    fmt_number(columns = c(Total:`Open Science Preprint`), decimals = 0) |&gt;\n    fmt_percent(columns = c(`OSP / Open`, `OSP / Total`), decimals = 1) \n\n\nHere’s a summary table of OSF Preprints by Provider:\n\nTotal: Total number of OSF Preprints (no filtering at all)\nOpen: Number of preprints that are public and not embargoed\nOpen + Non-deprecated: Number of preprints that are Open and are registered, not deleted, and not retracted\nOpen + Authentic: Number of preprints that are Open and are not spam\nOpen Science Preprint: Number of preprints meeting all three criteria (i.e., Open + Non-deprecated + Authentic)\nOSP / Open: Percentage of Open (i.e., public and not embargoed) preprints that meet the Open Science Preprint criteria\nOSP / Total: Percentage of Total preprints that meet the Open Science Preprint criteria\n\n\n\nSee the code\nprovider_gtbl\n\n\n\n\n\n\n\n\nOpen Science Preprints by Provider\n\n\nas of 2025-10-01\n\n\nProvider\nTotal\nOpen\nOpen + Non-deprecated\nOpen + Authentic\nOpen Science Preprint\nOSP / Open\nOSP / Total\n\n\n\n\nOpen Science Framework\n155,518\n118,825\n73,237\n113,957\n70,881\n59.7%\n45.6%\n\n\nPsyArXiv\n69,386\n67,537\n46,658\n65,959\n45,791\n67.8%\n66.0%\n\n\nSocArXiv\n29,894\n28,620\n18,922\n27,922\n18,419\n64.4%\n61.6%\n\n\nINA-Rxiv\n26,801\n24,384\n3,400\n24,221\n3,348\n13.7%\n12.5%\n\n\nThesis Commons\n5,027\n3,632\n2,235\n3,516\n2,179\n60.0%\n43.3%\n\n\nEdArXiv\n4,789\n4,364\n1,910\n4,223\n1,820\n41.7%\n38.0%\n\n\nLaw Archive\n1,480\n1,471\n1,315\n1,463\n1,311\n89.1%\n88.6%\n\n\nMetaArXiv\n1,542\n1,409\n621\n1,383\n605\n42.9%\n39.2%\n\n\nAfricArXiv\n1,081\n974\n460\n964\n459\n47.1%\n42.5%\n\n\nMarXiv\n626\n550\n434\n550\n434\n78.9%\n69.3%\n\n\nSportRxiv\n572\n544\n367\n538\n361\n66.4%\n63.1%\n\n\nAgriXiv\n618\n532\n317\n516\n309\n58.1%\n50.0%\n\n\nArabixiv\n749\n448\n289\n448\n289\n64.5%\n38.6%\n\n\nECSarXiv\n728\n673\n272\n661\n272\n40.4%\n37.4%\n\n\nMindRxiv\n507\n438\n279\n422\n270\n61.6%\n53.3%\n\n\nMediArXiv\n679\n642\n274\n628\n268\n41.7%\n39.5%\n\n\nLIS Scholarship Archive\n472\n403\n265\n399\n262\n65.0%\n55.5%\n\n\nPaleorXiv\n477\n379\n234\n373\n232\n61.2%\n48.6%\n\n\nLawArXiv\n449\n289\n164\n287\n162\n56.1%\n36.1%\n\n\nBodoArXiv\n297\n285\n136\n281\n135\n47.4%\n45.5%\n\n\nBioHackrXiv\n406\n393\n126\n378\n123\n31.3%\n30.3%\n\n\nFrenxiv\n266\n196\n123\n190\n119\n60.7%\n44.7%\n\n\nIndiaRxiv\n317\n270\n114\n269\n113\n41.9%\n35.6%\n\n\nFocUS Archive\n249\n190\n70\n189\n70\n36.8%\n28.1%\n\n\nNutriXiv\n121\n110\n64\n110\n64\n58.2%\n52.9%\n\n\nCoP\n73\n69\n28\n53\n14\n20.3%\n19.2%\n\n\nEcoEvoRxiv\n1,446\n1,386\n13\n1,371\n13\n0.9%\n0.9%\n\n\nNewAddictionsX\n10\n10\n2\n10\n2\n20.0%\n20.0%\n\n\nengrXiv\n3,335\n3,024\n1\n2,950\n0\n0.0%\n0.0%\n\n\nEarthArXiv\n3,205\n2,873\n0\n2,854\n0\n0.0%\n0.0%\n\n\n\n\n\n\n\nWe can also plot these numbers over time for each provider. Because of the disparity in the number of preprints between registries, we calculate the percentage of preprints that meeting Open Science Preprint criteria. This are the OSP / Open and OSP / Total metrics from the previous table.\n\n\nSee the code\n# Prep\nprovider_ptbl &lt;- provider_tbl |&gt;\n    select(Date, Provider, `OSP / Open`, `OSP / Total`) |&gt;\n    pivot_longer(\n        cols = c(`OSP / Open`, `OSP / Total`),\n        names_to = \"Metric\", values_to = \"Percentage\") |&gt;\n    ungroup()\n\n# First plot\nprovider_ptbl |&gt;\n    filter(Metric == \"OSP / Open\") |&gt;\n    plot_time_series(Date, Percentage, .color_var = Provider,\n    .smooth = FALSE, .title = \"Open Efficiency of OSF Preprints by Provider\")\n\n\n\n\n\n\n\n\nSee the code\n# Second plot\nprovider_ptbl |&gt;\n    filter(Metric == \"OSP / Total\") |&gt;\n    plot_time_series(Date, Percentage, .color_var = Provider,\n    .smooth = FALSE, .title = \"Total Efficiency of OSF Preprints by Provider\")",
+    "crumbs": [
+      "Open Preprints"
+    ]
+  },
+  {
+    "objectID": "vignettes/los-preprint-assertions.html",
+    "href": "vignettes/los-preprint-assertions.html",
+    "title": "OSF Preprint Assertions",
+    "section": "",
+    "text": "This method measures lifecycle open science on OSF by looking at preprint assertions linked to open science preprints.\n\n\n\nOpen Science Preprint (OSP): An OSF Preprint that is jointly open, non-deprecated, and authentic\n\n\nOpenness Criteria:\n\nPublic (open-1)\n\nNon-Deprecation Criteria:\n\nAccepted (nondeprecated-1)\nPublished (nondeprecated-2)\nNot Deleted (nondeprecated-3)\nNot Withdrawn (nondeprecated-4)\n\nAuthenticity Criteria:\n\nNot Spam (authentic-1)\n\n\n\nLOS-Preprint: An OSP that represents a lifecycle open science research project.\n\n\nLifecycle Open Criteria:\n\nPlan: The OSP has at least 1 linked preregistration\nOutput: The OSP has at least 1 linked dataset",
+    "crumbs": [
+      "Preprint Assertions"
+    ]
+  },
+  {
+    "objectID": "vignettes/los-preprint-assertions.html#definitions",
+    "href": "vignettes/los-preprint-assertions.html#definitions",
+    "title": "OSF Preprint Assertions",
+    "section": "",
+    "text": "Open Science Preprint (OSP): An OSF Preprint that is jointly open, non-deprecated, and authentic\n\n\nOpenness Criteria:\n\nPublic (open-1)\n\nNon-Deprecation Criteria:\n\nAccepted (nondeprecated-1)\nPublished (nondeprecated-2)\nNot Deleted (nondeprecated-3)\nNot Withdrawn (nondeprecated-4)\n\nAuthenticity Criteria:\n\nNot Spam (authentic-1)\n\n\n\nLOS-Preprint: An OSP that represents a lifecycle open science research project.\n\n\nLifecycle Open Criteria:\n\nPlan: The OSP has at least 1 linked preregistration\nOutput: The OSP has at least 1 linked dataset",
+    "crumbs": [
+      "Preprint Assertions"
+    ]
+  },
+  {
+    "objectID": "vignettes/los-preprint-assertions.html#today",
+    "href": "vignettes/los-preprint-assertions.html#today",
+    "title": "OSF Preprint Assertions",
+    "section": "Today",
+    "text": "Today\nHere is the current state of LOS research projects on the OSF as of 2025-10-01. For all of the summary tables below, the following fields are included:\n\n&lt;GROUP_NAME&gt;: An optional grouping variable for seeing disaggregated results (e.g., by provider, institutional membership, etc.)\nOSP: Number of Open Science Preprints (i.e., Open + Non-deprecated + Authentic)\nOSP + Plan: Number of Open Science Preprints with at least one linked output resource\nOSP + Outcome(s): Number of Open Science Preprints with at least one linked outcome resource\nLOS-Preprint: Lifecycle Open Science Preprints - number of Open Science Preprints with at least one linked outcome and at least one linked output resource\nLOS-Preprint / OSP: Percentage of Open Science OSF Preprints (OSP) that are Lifecycle Open Science Preprints (LOS-Preprint)\n\n\nAggregate\n\n\nSee the code\noverall_tbl &lt;- all_summary |&gt;\n    filter(criteria %in% TABLE_CRITERIA) |&gt;\n    pivot_wider(names_from = criteria, values_from = n) \nnames(overall_tbl) &lt;-c(\"Date\", TABLE_NAMES)\n\noverall_tbl &lt;- overall_tbl |&gt;\n    mutate(\n        `LOS-Preprint / OSP` = `LOS-Preprint` / `OSP`,\n    )\n\ntoday_gtbl &lt;- overall_tbl |&gt;\n    filter(Date == MOST_RECENT) |&gt;\n    select(-Date) |&gt;\n    table_helper(\"Lifecycle Open Science Preprints\", use_pagination = FALSE, use_sorting = FALSE)\n\ntoday_gtbl\n\n\n\n\n\nLifecycle Open Science Preprints\nas of 2025-10-01\n\n\n\n\n\n\na OSP: Open Science Preprint\nb LOS-Preprint: Lifecycle Open Science Preprint\n\n\n\n\n\n\n\n\n\nBy Provider\n\n\nSee the code\nprovider_tbl &lt;- provider_summary |&gt;\n    filter(criteria %in% TABLE_CRITERIA) |&gt;\n    pivot_wider(names_from = criteria, values_from = n) \nnames(provider_tbl) &lt;-c(\"Date\", \"Provider\", TABLE_NAMES)\n\nprovider_tbl &lt;- provider_tbl |&gt;\n    mutate(\n        `LOS-Preprint / OSP` = `LOS-Preprint` / `OSP`,\n    )\n\ntoday_provider_tbl &lt;- provider_tbl |&gt; \n    ungroup() |&gt;\n    filter(Date == MOST_RECENT) |&gt;\n    arrange(desc(`LOS-Preprint`)) |&gt;\n    select(-Date) |&gt;    \n    table_helper(\"Lifecycle Open Science Preprints by Provider\", use_pagination = FALSE)\n\ntoday_provider_tbl\n\n\n\n\n\nLifecycle Open Science Preprints by Provider\nas of 2025-10-01\n\n\n\n\n\n\na OSP: Open Science Preprint\nb LOS-Preprint: Lifecycle Open Science Preprint",
+    "crumbs": [
+      "Preprint Assertions"
+    ]
+  },
+  {
+    "objectID": "vignettes/los-preprint-assertions.html#time-to-lifecycle-open-science",
+    "href": "vignettes/los-preprint-assertions.html#time-to-lifecycle-open-science",
+    "title": "OSF Preprint Assertions",
+    "section": "Time to Lifecycle Open Science",
+    "text": "Time to Lifecycle Open Science\nPENDING",
+    "crumbs": [
+      "Preprint Assertions"
     ]
   }
 ]

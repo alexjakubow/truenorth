@@ -44,6 +44,7 @@ pplog_tbl <- open_parquet(tbl = "osf_preprintlog", duck = FALSE)
 preprints <- preprint_tbl |>
   select(
     preprint_id = id,
+    node_id,
     provider_id,
     is_public,
     is_spam = spam_status,

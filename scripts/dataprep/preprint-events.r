@@ -4,6 +4,7 @@
 # This script uses logged actions on preprints to determine when key lifecycle open science activities occur during the lifecycle of a preprint.  At present, the following activities are tracked:
 # - Visibility
 # - Spam
+# - Supplemental resources node/project
 #
 # Inputs:
 # - data/preprint.parquet (created by scripts/dataprep/preprint.r)
@@ -12,6 +13,7 @@
 # Output files:
 # - data/preprint_visibility.parquet
 # - data/preprint_spam.parquet
+# - data/preprint_supplements.parquet
 #
 # Notes:
 # - If a preprint has no relevant actions in the logs, we assume that activities of interest occurred at the time of creation.
@@ -33,7 +35,7 @@ PATH_PPT <- glue("{PQROOT}.parquet")
 PATH_PPT_LOG <- glue("{PQROOT}_log.parquet")
 PATH_PPT_VIS <- glue("{PQROOT}_visibility.parquet")
 PATH_PPT_SPM <- glue("{PQROOT}_spam.parquet")
-PATH_PPT_RES <- glue("{PQROOT}_resources.parquet")
+PATH_PPT_SUP <- glue("{PQROOT}_supplements.parquet")
 
 
 # VISIBILITY ----------------------------------------------------------------
@@ -94,3 +96,43 @@ tbl_spam <- bind_rows(
 
 write_parquet(tbl_spam, PATH_PPT_SPM)
 rm(tbl_spam)
+
+
+# SUPPLEMENTAL RESOURCE NODES --------------------------------------------------
+ACTIONS <- c("supplement_node_added", "supplement_node_removed")
+
+logged <- open_dataset(PATH_PPT_LOG) |>
+  select(preprint_id, action, created) |>
+  filter(action %in% ACTIONS) |>
+  mutate(
+    action = if_else(
+      action == "supplement_node_added",
+      "add-supplement",
+      "remove-supplement"
+    )
+  ) |>
+  rename(
+    supplement_status = action,
+    supplement_status_date = created
+  )
+
+always <- open_dataset(PATH_PPT) |>
+  select(preprint_id, node_id, created) |>
+  anti_join(distinct(logged, preprint_id), by = "preprint_id") |>
+  mutate(
+    supplement_status = if_else(
+      !is.na(node_id),
+      "add-supplement",
+      "remove-supplement"
+    )
+  ) |>
+  rename(supplement_status_date = created) |>
+  select(preprint_id, supplement_status, supplement_status_date)
+
+both <- bind_rows(
+  collect(always),
+  collect(logged)
+)
+
+write_parquet(both, PATH_PPT_SUP)
+rm(both)

@@ -6,7 +6,7 @@ date-modified: last-modified
 
 # Overview
 
-This method measures lifecycle open science on OSF by looking at open science practices linked to open science registrations.
+This method measures lifecycle open science on OSF by looking at open science practices linked to open science registrations.  
 
 ## Definitions
 
@@ -252,7 +252,7 @@ today_template_gtbl
 reg_tbl <- read_parquet(here::here("data/registration_current.parquet")) |>
     filter(is_osr == 1) |>
     select(node_id, registry, registered_date) 
-reg_events <- read_parquet(here::here("data/registration_badges_time.parquet")) |>
+reg_events <- read_parquet(here::here("data/registration_badges_ttlos.parquet")) |>
     inner_join(reg_tbl, by = "node_id", relationship = "many-to-one")
 
 
@@ -316,7 +316,6 @@ df_sequence <- df_long |>
 df_tte <- df_long |>
     left_join(df_sequence) |>
     mutate(time_to_event = as.numeric(date - registered_date, units = "days")) 
-
 ```
 
 The following table summarizes how long it takes for an OSR to become fully lifecycle open.  Each row corresponds to three different milestones in the research project lifecycle:
@@ -388,7 +387,7 @@ df_summary |>
     # Title
     tab_header(
         title = "Time to First Linked Resource (in days)",
-        subtitle = paste0("Among all Open Science Registrations (OSR)")
+        subtitle = paste0("Among all Open Science Registrations (OSR) with 1+ linked resource")
     ) |>
     # Column labels
     cols_label(
@@ -622,25 +621,3 @@ registry_ptbl |>
     plot_time_series(Date, Percentage, .color_var = Registry,
     .smooth = FALSE, .title = "Efficiency of Lifecycle Open Science Registrations by Registry")
 ```
-
-# CHANGELOG
-
-- 2025-10-22
-    - Revisions to time-to-event analyses
-    - Preprints-forward recipe pending
-
-- 2025-10-17
-    - Initial time-to-event analyses
-    - Revisions to README.md
-
-- 2025-10-03
-    - Disaggreagate by OSF Registration template
-    - UI updates
-    - Consolidated repository struture (data processing + presentation layers)
-
-- 2025-10-01
-    - Align operationalization of "outputs" and "outcomes" with organizational definitions
-    - Drop counts and computations involving "Total" (i.e.,unfiltered) registrations
-    - Drop non-embargoed requirement from the "Openness" criteria for OSR status
-    
-- 2023-09-15: Initial version

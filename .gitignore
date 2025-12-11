@@ -8,6 +8,9 @@
 *_cache
 *_files
 
+# IDE
+*.code*
+
 # Directories
 data
 /.quarto/
@@ -16,3 +19,6 @@ notes
 dev
 R2D2
 scripts/x
+
+# Other files
+scratch.r

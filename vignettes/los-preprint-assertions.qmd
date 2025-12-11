@@ -6,7 +6,7 @@ date-modified: last-modified
 
 # Overview
 
-This method measures lifecycle open science on OSF by looking at preprint assertions linked to open science preprints.
+This method measures lifecycle open science on OSF by looking at preprint assertions linked to open science preprints.  
 
 ## Definitions
 
@@ -51,7 +51,7 @@ library(timetk)
 # Modules
 box::use(
   R / plot[pivoter, ppt_factorizer, ts_prep],
-  R / parameters[DATES]
+  R / parameters[DATES, OUTPUTS, PLANS]
 )
 
 
@@ -109,7 +109,7 @@ tte_table <- function(tbl, title = "Time to Lifecycle Open Status (in days)", gr
     gt(row_group_as_column = TRUE) |>
     tab_header(
       title = TITLE,
-      subtitle = "Among all Open Science Preprints (OSP)") |>
+      subtitle = "Among all Open Science Preprints (OSP) with 1+ linked resource") |>
     cols_label(
       event = "Event",
       n = "Count",
@@ -209,4 +209,137 @@ today_provider_tbl
 
 ## Time to Lifecycle Open Science
 
-PENDING
+
+```{r}
+# TODO: Compute date of OSP status from logged event tables, not just current status
+ppt_tbl <- read_parquet(here::here("data/preprint_current.parquet")) |>
+    filter(is_osp == 1) |>
+    select(preprint_id, provider, created) 
+ppt_events <- read_parquet(here::here("data/preprint_resources_ttlos.parquet")) |>
+    inner_join(ppt_tbl, by = "preprint_id", relationship = "many-to-one")
+
+
+#' Time to event summarizer
+tte_summarizer <- function(tbl, t = time_to_event, x = event, ...) {
+    # Totals
+    df_n <- tbl |>
+        summarize(
+            .by = c(...),
+            N = n_distinct(preprint_id)
+        ) |>
+        cross_join(distinct(tbl, {{ x }}))
+
+    # Summary
+    tbl |>
+        summarise(
+            .by = c({{ x }}, ...),
+            n = sum(!is.na({{ t }})),
+            mean = mean({{ t }}, na.rm = TRUE),
+            p50 = median({{ t }}, na.rm = TRUE),
+            sd = sd({{ t }}, na.rm = TRUE),
+            min = min({{ t }}, na.rm = TRUE),
+            max = max({{ t }}, na.rm = TRUE),
+        ) |>
+        left_join(df_n) |>
+        mutate(
+            p = n / N
+        ) |>
+        select(..., {{ x }}, n, p, mean, p50, sd, min, max)
+}
+```
+
+
+
+Since preprints typically appear closer to the end of a research project, one might expect that the time to Lifecycle Open Science is shorter than in the case of OSF Registrations.
+
+Unless otherwise stated, the starting sample for these analyses is all Open Science Preprints (OSP).  As of `r MOST_RECENT`, there are `r format(n_distinct(ppt_events$preprint_id), big.mark = ",")` Open Science Preprints (OSP) in the OSF.
+
+
+```{r}
+# Long form (among earliest connected resources of each type)
+df_long <- ppt_events |>
+    select(preprint_id, created, date_lifecycle, starts_with("date1_")) |>
+    rename(date1_lifecycle = date_lifecycle) |>
+    pivot_longer(
+        cols = dplyr::matches("date1_"),
+        names_to = "event",
+        names_prefix = "date1_",
+        values_to = "date"
+    ) |>
+    arrange(preprint_id, date)
+
+#  Add sequencing
+df_sequence <- df_long |>
+    filter(event %in% c(tolower(PLANS), tolower(OUTPUTS)) & !is.na(date)) |>
+    group_by(preprint_id) |>
+    arrange(date) |>
+    mutate(
+        sequence = row_number()
+    ) |>
+    ungroup() |>
+    select(preprint_id, event, sequence)
+
+# Time-to-Event
+df_tte <- df_long |>
+    left_join(df_sequence) |>
+    mutate(time_to_event = as.numeric(date - created, units = "days")) 
+```
+
+
+The following table summarizes how long it takes for an OSP to become fully lifecycle open.  Each row corresponds to three different milestones in the research project lifecycle:
+
+1. The first linked plan resource
+2. The first linked output resource
+3. The achievement of lifecycle open status
+
+The "Prevalance" columns report the number and percentage of OSPs that have reached each milestone, while the "Distribution" columns provide summary statistics characterizing the center, spread, and range of time to each milestone (in days).
+
+```{r}
+df_summary <- tte_summarizer(df_tte, t = time_to_event, x = event)
+tte_table(df_summary)
+```
+
+
+The following interactive graphic provides the same information via a boxplot.
+
+```{r}
+p <- df_tte |>
+    filter(event %in% c("plan", "output", "lifecycle")) |>
+    mutate(
+        event = stringr::str_to_title(event),
+        event = factor(event, levels = c("Plan", "Output", "Lifecycle"))
+    ) |>
+    ggplot() +
+    geom_boxplot_interactive(
+        aes(
+            x = event,
+            y = time_to_event,
+            fill = event,
+            data_id = event,
+            group = event,
+            tooltip = after_stat({
+                paste0(
+                    "Event: ", stringr::str_to_title(.data$fill),
+                    "\n",
+                    "\nMax: ", comma(.data$max),
+                    "\nQ3: ", comma(.data$upper),
+                    "\nMedian: ", comma(round(.data$middle)),
+                    "\nQ1: ", comma(.data$lower),
+                    "\nMin: ", comma(round(.data$min))
+                )
+            }),
+            outlier.tooltip = paste(
+                "Days: ", comma(round(time_to_event)))
+            )
+        ) +
+        guides(fill = "none") +
+        scale_y_continuous(labels = label_comma()) +
+        labs(
+            y = "Days",
+            x = "Event",
+            title = "Time to Lifecycle Open Status (in days)",
+        ) +
+        theme_minimal()
+g <- girafe(ggobj = p)
+g
+```

@@ -6,13 +6,16 @@ PARQUET_PATH <- "~/osfdata/parquet"
 
 # CONSTANTS ----------------------------------------------------------------
 #' @export
-OUTCOMES <- "papers"
+PLANS <- "prereg"
 
 #' @export
 OUTPUTS <- c("code", "data", "materials", "supplements")
 
+#' @export
+OUTCOMES <- "papers"
+
 # TIME ----------------------------------------------------------------
-TIMESPAN <- c("2018-01-01", "2025-10-01")
+TIMESPAN <- c("2018-01-01", "2025-12-01")
 DELTA <- "month"
 
 #' @export

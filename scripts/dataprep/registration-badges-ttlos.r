@@ -105,7 +105,7 @@ reg_moments <- badges_tbl |>
       .default = NA
     ),
     date_lifecycle = case_when(
-      date1_outcome < date1_output ~ date1_outcome,
+      date1_outcome < date1_output ~ date1_output,
       date1_outcome >= date1_output ~ date1_outcome,
       .default = NA
     )

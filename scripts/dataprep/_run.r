@@ -22,8 +22,8 @@ source(file.path(PATH, "registration-events.r"))
 source(file.path(PATH, "registration-badges.r"))
 
 # Analysis datasets
-source(file.path(PATH, "registration-ts.r")) # Monthly TS summaries + current status
-source(file.path(PATH, "registration-ttlos.r")) # Time-to-event dataset
+source(file.path(PATH, "registration-ts.r")) # Monthly TS summaries
+source(file.path(PATH, "registration-badges-ttlos.r")) # Time-to-event dataset
 
 
 # PREPRINT-RESOURCES -----------------------------------------------------------
@@ -34,3 +34,23 @@ source(file.path(PATH, "preprint-log.r"))
 # Lifecycle events
 source(file.path(PATH, "preprint-events.r"))
 source(file.path(PATH, "preprint-resources.r"))
+source(file.path(PATH, "preprint-supplements-ts.r"))
+
+# Analysis datasets
+source(file.path(PATH, "preprint-ts.r"))
+source(file.path(PATH, "preprint-resources-ttlos.r")) # Time-to-event dataset
+
+# NODE ----------------------------------------------------------------------
+# # source(file.path(PATH, "nodetype.r"))
+
+# # Core tables
+# source(file.path(PATH, "node.r"))
+# source(file.path(PATH, "node-log.r"))
+
+# # Lifecycle events
+# source(file.path(PATH, "node-events.r"))
+# source(file.path(PATH, "node-categories.r"))
+
+# # Analysis datasets
+# source(file.path(PATH, "node-ts.r"))
+# source(file.path(PATH, "node-categories-ttlos.r")) # Time-to-event dataset

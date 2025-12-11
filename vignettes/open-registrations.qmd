@@ -5,9 +5,9 @@ date-modified: last-modified
 ---
 
 # Overview
-This vignette examines candidacy criteria for lifecycle open science among OSF Registrations.
+This vignette examines candidacy criteria for lifecycle open science among OSF Registrations.  
 
-Candidate registrations meet standards for and *openness*, *non-deprecation*, *authenticity*.  Specifically, an open-science registraiton must be:
+Candidate registrations meet standards for *openness*, *non-deprecation*, *authenticity*.  Specifically, an open-science registration must be:
 
 **Open**
 
@@ -197,9 +197,3 @@ registry_ptbl |>
     plot_time_series(Date, Percentage, .color_var = Registry,
     .smooth = FALSE, .title = "Total Efficiency of OSF Registrations by Registry")
 ```
-
-
-# CHANGELOG
-- 2025-09-18
-    - Align operationalization of "outputs" and "outcomes" with organizational definitions
-    - Drop non-embargoed requirement from the "Openness" criteria for Open Science Registration (OSR) status

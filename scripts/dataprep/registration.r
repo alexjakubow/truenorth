@@ -7,7 +7,6 @@
 #   - osf_abstractnode (database)
 #   - osf_abstractprovider (database)
 #   - osf_guid (database)
-#   - osf_nodelog (database)
 #   - data/registration_template.parquet (scripts/dataprep/registration-template.r)
 #
 # Output file:

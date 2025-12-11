@@ -29,3 +29,32 @@ CRITERIA_OSP <- rlang::exprs(
     is.na(deleted),
   "authentic" = spam == "non-spam"
 )
+
+#' Open Science Nodes
+#' @export
+CRITERIA_OSN <- rlang::exprs(
+  "open" = visibility == "public",
+  "nondeprecated" = is.na(deleted),
+  "authentic" = spam == "non-spam"
+)
+
+# NODE CATEGORIES --------------------------------------------------------------
+#' @export
+NDE_CATEGORY_PLANS <- c(
+  "hypothesis",
+  "procedure"
+)
+
+#' @export
+NDE_CATEGORY_OUTPUTS <- c(
+  "analysis",
+  "data",
+  "other",
+  "methods and measures",
+  "software"
+)
+
+#' @export
+NDE_CATEGORY_OUTCOMES <- c(
+  "communication"
+)
